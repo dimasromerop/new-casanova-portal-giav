@@ -1,0 +1,111 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: casanova-portal\n"
+"POT-Creation-Date: 2025-12-23 09:30+0000\n"
+"PO-Revision-Date: 2025-12-23 09:30+0000\n"
+"Language: es_ES\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Bonos"
+msgstr "Bonos"
+
+msgid "Continuar al pago"
+msgstr "Continuar al pago"
+
+msgid "Depósito"
+msgstr "Depósito"
+
+msgid "Expediente #%s"
+msgstr "Expediente #%s"
+
+msgid "Expedientes"
+msgstr "Expedientes"
+
+msgid "Importe"
+msgstr "Importe"
+
+msgid "No hay"
+msgstr "No hay"
+
+msgid "No hay un viaje activo o próximo para mostrar pagos."
+msgstr "No hay un viaje activo o próximo para mostrar pagos."
+
+msgid "No hay viajes próximos para mostrar aquí."
+msgstr "No hay viajes próximos para mostrar aquí."
+
+msgid "No tienes viajes próximos."
+msgstr "No tienes viajes próximos."
+
+msgid "Nuevo"
+msgstr "Nuevo"
+
+msgid "Otro viaje"
+msgstr "Otro viaje"
+
+msgid "PDF"
+msgstr "PDF"
+
+msgid "Pagar ahora"
+msgstr "Pagar ahora"
+
+msgid "Pagar depósito"
+msgstr "Pagar depósito"
+
+msgid "Pago"
+msgstr "Pago"
+
+msgid "Para confirmar tu viaje, puedes pagar un depósito de %s"
+msgstr "Para confirmar tu viaje, puedes pagar un depósito de %s"
+
+msgid "Próximo viaje"
+msgstr "Próximo viaje"
+
+msgid "Qué necesitas hacer ahora"
+msgstr "Qué necesitas hacer ahora"
+
+msgid "Selecciona un expediente"
+msgstr "Selecciona un expediente"
+
+msgid "Si tienes dudas, contacta con la agencia antes de pagar."
+msgstr "Si tienes dudas, contacta con la agencia antes de pagar."
+
+msgid "También tienes otro viaje a la vista:"
+msgstr "También tienes otro viaje a la vista:"
+
+msgid "Todo listo"
+msgstr "Todo listo"
+
+msgid "Todo pagado"
+msgstr "Todo pagado"
+
+msgid "Total viaje"
+msgstr "Total viaje"
+
+msgid "Tu próximo viaje está al día. No tienes acciones pendientes ahora mismo."
+msgstr "Tu próximo viaje está al día. No tienes acciones pendientes ahora mismo."
+
+msgid "Ver"
+msgstr "Ver"
+
+msgid "Ver detalle"
+msgstr "Ver detalle"
+
+msgid "Ver facturas"
+msgstr "Ver facturas"
+
+msgid "Ver opciones de pago"
+msgstr "Ver opciones de pago"
+
+msgid "Ver viaje"
+msgstr "Ver viaje"
+
+msgid "Viaje"
+msgstr "Viaje"
+
+msgid "Volver"
+msgstr "Volver"
+
+msgid "para este viaje."
+msgstr "para este viaje."

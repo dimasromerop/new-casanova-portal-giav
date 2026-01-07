@@ -1,0 +1,1077 @@
+/* Casanova Portal GIAV - UI layer (clean markup friendly for Bricks)
+   Diseño: limpio, tarjetas suaves, bordes sutiles (tendencias 2024-2026).
+*/
+
+.casanova-portal{
+  --casanova-bg: #ffffff;
+  --casanova-surface: #ffffff;
+  --casanova-muted: rgba(0,0,0,.6);
+  --casanova-border: rgba(0,0,0,.08);
+  --casanova-border-2: rgba(0,0,0,.06);
+  --casanova-shadow: 0 8px 24px rgba(0,0,0,.06);
+  --casanova-radius: 18px;
+  --casanova-radius-sm: 14px;
+  --casanova-accent: #0f766e;
+  --casanova-text: #111;
+}
+
+.casanova-portal{ box-sizing:border-box; }
+.casanova-portal *, .casanova-portal *::before, .casanova-portal *::after{ box-sizing:inherit; }
+
+.casanova-card{
+  border: 1px solid var(--casanova-border);
+  border-radius: var(--casanova-radius);
+  padding: 16px;
+  background: var(--casanova-surface);
+  box-shadow: var(--casanova-shadow);
+}
+.casanova-portal--stack > * + *{ margin-top:12px; }
+
+/* Layout */
+.casanova-layout{ display:grid; grid-template-columns: 1.15fr 0.85fr; gap:16px; align-items:start; margin-top:12px; }
+@media (max-width: 900px){
+  .casanova-layout{ grid-template-columns: 1fr; }
+}
+
+/* Summary */
+.casanova-summary__grid{ display:flex; flex-wrap:wrap; gap:10px; }
+.casanova-metric{
+  padding: 12px 14px;
+  border: 1px solid var(--casanova-border-2);
+  border-radius: var(--casanova-radius-sm);
+  min-width: 180px;
+  background: rgba(0,0,0,.02);
+}
+.casanova-metric__label{ opacity:.7; font-size:.9em; }
+.casanova-metric__value{ font-weight:900; letter-spacing:-.01em; }
+
+.casanova-actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
+
+/* Buttons */
+.casanova-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:10px 14px; border-radius:12px; text-decoration:none;
+  font-weight:800; line-height:1.2; border:1px solid transparent;
+}
+.casanova-btn--dark{ background:#111; color:#fff; }
+.casanova-btn--primary{ background:var(--casanova-accent, #2563eb); color:#fff; }
+.casanova-btn--primary:hover,.casanova-btn--primary:focus{ background:var(--casanova-accent, #2563eb); filter:brightness(0.9); color:#fff; }
+.casanova-btn--disabled{ background:#eee; color:#666; cursor:not-allowed; }
+
+.casanova-pill{ display:inline-block; padding:6px 10px; border-radius:999px; font-weight:800; border:1px solid #e5e7eb; margin-top:10px; }
+.casanova-pill--muted{ opacity:.65; }
+
+/* Alerts / notes */
+.casanova-alert{ padding:10px 12px; border-radius:12px; margin-top:12px; margin-bottom:12px; border:1px solid; }
+.casanova-alert--ok{ background:#e8f7ee; color:#167a3f; border-color:#bfe9cf; }
+.casanova-alert--warn{ background:#fff7e6; color:#8a5a00; border-color:#ffe0a6; }
+.casanova-note{ margin-top:10px; opacity:.75; font-size:.9em; }
+
+.casanova-section-title{ font-weight:900; margin-bottom:10px; }
+.casanova-subsection{ margin-top:12px; }
+.casanova-subtitle{ font-weight:800; margin:10px 0 8px; }
+.casanova-subtitle--small{ font-weight:700; font-size:.95em; }
+
+/* Tables */
+.casanova-tablewrap{ overflow:auto; -webkit-overflow-scrolling:touch; border-radius:10px; border:1px solid #f1f1f1; }
+.casanova-table{ width:100%; border-collapse:collapse; min-width:760px; background:#fff; }
+.casanova-table th, .casanova-table td{ padding:8px; border-bottom:1px solid #f1f1f1; text-align:left; vertical-align:top; }
+.casanova-table thead th{ border-bottom:1px solid #ddd; font-weight:800; white-space:nowrap; }
+.casanova-table td.num, .casanova-table th.num{ text-align:right; white-space:nowrap; }
+.casanova-table td.muted{ opacity:.6; }
+
+.casanova-link{ text-decoration:none; font-weight:800; }
+.casanova-link:hover{ text-decoration:underline; }
+
+/* Details */
+.casanova-details__summary{ cursor:pointer; font-weight:900; }
+.casanova-details__body{ margin-top:10px; }
+
+/* Badges */
+.casanova-badge{ display:inline-block; padding:4px 8px; border-radius:999px; font-size:.85em; border:1px solid; }
+.casanova-badge--pay{ border-color:#10b981; }
+.casanova-badge--refund{ border-color:#ef4444; }
+.casanova-badge--pending{ border-color:#f59e0b; }
+
+/* Expedientes list */
+.casanova-expediente-card{
+  display:block; text-decoration:none; color:inherit;
+  padding:14px; border:1px solid var(--casanova-border); border-radius: var(--casanova-radius);
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(0,0,0,.04);
+}
+.casanova-expediente-card + .casanova-expediente-card{ margin-top:10px; }
+.casanova-expediente-card:hover{ border-color: rgba(0,0,0,.12); }
+.casanova-expediente-card__row{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.casanova-expediente-card__main{ min-width:0; }
+.casanova-expediente-card__title{ font-weight:800; }
+.casanova-expediente-card__meta{ opacity:.75; font-size:.95em; margin-top:2px; }
+.casanova-expediente-card__right{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+.casanova-expediente-card__chev{ font-weight:900; opacity:.35; font-size:22px; line-height:1; }
+
+.casanova-expediente-card__state{
+  font-size:.85em;
+  opacity:.9;
+  white-space:nowrap;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--casanova-border);
+  background: rgba(0,0,0,.02);
+  font-weight:800;
+}
+
+.casanova-expediente-card__state.is-open{ border-color: rgba(15,118,110,.22); background: rgba(15,118,110,.08); color: #0f766e; }
+.casanova-expediente-card__state.is-closed{ border-color: rgba(0,0,0,.14); background: rgba(0,0,0,.04); color: rgba(0,0,0,.7); }
+
+/* Active expediente */
+.casanova-expediente-card.is-active{
+  border-color: var(--casanova-accent);
+  box-shadow: 0 0 0 2px rgba(15,118,110,.14), 0 10px 26px rgba(0,0,0,.06);
+}
+
+/* =========================
+ * Card: Próximo viaje
+ * ========================= */
+.casanova-nexttrip-card{
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 18px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0,0,0,.06);
+}
+.casanova-nexttrip-card__top{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  margin-bottom: 8px;
+}
+.casanova-nexttrip-card__title{
+  font-weight: 800;
+  font-size: 14px;
+  opacity: .85;
+}
+.casanova-nexttrip-card__badge{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(0,0,0,.10);
+  background: rgba(15,118,110,.08);
+  color: #0f766e;
+  font-weight: 900;
+  font-size: 12px;
+}
+.casanova-nexttrip-card__headline{
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing:-.01em;
+  margin: 2px 0 4px;
+}
+.casanova-nexttrip-card__meta{
+  font-size: 13px;
+  opacity: .75;
+  margin-bottom: 12px;
+}
+.casanova-nexttrip-card__grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-bottom: 12px;
+}
+@media (max-width: 520px){
+  .casanova-nexttrip-card__grid{ grid-template-columns: 1fr; }
+}
+.casanova-nexttrip-card__stat{
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(0,0,0,.02);
+}
+.casanova-nexttrip-card__label{
+  font-size: 12px;
+  opacity: .75;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.casanova-nexttrip-card__value{
+  font-weight: 900;
+  font-size: 18px;
+}
+.casanova-nexttrip-card__value--warn{
+  color: #8a5a00;
+}
+.casanova-nexttrip-card__cta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.casanova-nexttrip-card__hint{
+  font-size: 12px;
+  opacity: .75;
+  font-weight: 700;
+  white-space:nowrap;
+}
+.casanova-nexttrip-card__empty{
+  opacity: .75;
+  margin-top: 8px;
+}
+
+/* Header (right column) */
+.casanova-exp-header{
+  display:flex; gap:12px; align-items:center;
+  border:1px solid #eee; border-radius:12px;
+  padding:10px 12px; background:#fff;
+}
+.casanova-exp-header__btn{
+  appearance:none; border:1px solid #e5e7eb; background:#111; color:#fff;
+  border-radius:10px; padding:8px 12px; font-weight:800; cursor:pointer;
+}
+.casanova-exp-header__btn{ display:none; }
+.casanova-exp-header__chev{ margin-left:8px; font-weight:900; opacity:.9; }
+
+/* Estado "no hay expediente seleccionado": hacemos el botón más obvio sin parecer un banner de 1997 */
+.casanova-exp-header--empty .casanova-exp-header__btn{
+  background:#0f766e;
+  border-color:#0f766e;
+  box-shadow: 0 0 0 2px rgba(15,118,110,.14);
+}
+.casanova-exp-header--empty .casanova-exp-header__btn:focus{ outline: 2px solid rgba(15,118,110,.35); outline-offset: 2px; }
+.casanova-exp-header__text{ min-width:0; }
+.casanova-exp-header__title{ font-weight:900; line-height:1.2; }
+.casanova-exp-header__meta{ opacity:.75; font-size:.95em; margin-top:2px; }
+
+
+
+/* Drawer (mobile) for expedientes list */
+.casanova-drawer-backdrop{
+  display:none;
+  position:fixed; inset:0;
+  background: rgba(0,0,0,.25);
+  z-index: 9998;
+}
+
+@media (max-width: 900px){
+  .casanova-exp-header__btn{ display:inline-flex; }
+  .casanova-expedientes--drawer{
+    position:fixed;
+    top:0; left:0; bottom:0;
+    width: min(92vw, 380px);
+    background:#fff;
+    border-right:1px solid #e5e7eb;
+    transform: translateX(-105%);
+    transition: transform .2s ease;
+    z-index: 9999;
+    overflow:auto;
+    padding:12px;
+  }
+  .casanova-drawer-open .casanova-expedientes--drawer{
+    transform: translateX(0);
+  }
+  .casanova-drawer-open .casanova-drawer-backdrop{ display:block; }
+}
+
+/* ==========================
+   Loading overlay (tabs only)
+   ========================== */
+
+/*
+  En Bricks colocas un <div class="casanova-tabs-loading">...</div> dentro del wrapper
+  de la columna derecha (.casanova-detail). El JS pone .is-loading en .casanova-detail
+  al hacer click en un expediente.
+*/
+
+.casanova-detail{ position: relative; }
+
+/* Overlay SOLO para la zona de tabs (Bricks) */
+.casanova-tabs-loading{
+  position:absolute;
+  inset:0;
+  display:none;
+  align-items:flex-start;
+  justify-content:center;
+  padding:40px 16px;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(2px);
+  z-index: 50;
+}
+
+.casanova-detail.is-loading .casanova-tabs-loading{ display:flex; }
+
+/* Por si existe un overlay antiguo dentro del plugin, lo dejamos siempre oculto */
+.casanova-detail .casanova-loading{ display:none !important; }
+
+/* Loading overlay (global) */
+.casanova-loading{
+  position:fixed; inset:0;
+  display:none;
+  align-items:center; justify-content:center;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(2px);
+  z-index: 10000;
+}
+.casanova-is-loading .casanova-loading{ display:flex; }
+.casanova-loading__card{
+  width:min(520px, 92%);
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  background:#fff;
+  padding:14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+.casanova-loading__bar{
+  height:12px;
+  border-radius:999px;
+  background: #f3f4f6;
+  margin:10px 0;
+  overflow:hidden;
+  position:relative;
+}
+.casanova-loading__bar::after{
+  content:"";
+  position:absolute; inset:0;
+  transform: translateX(-60%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
+  animation: casanova-shimmer 1.1s infinite;
+}
+@keyframes casanova-shimmer{
+  0%{ transform: translateX(-60%); }
+  100%{ transform: translateX(60%); }
+}
+.casanova-loading__text{ opacity:.7; margin-top:8px; font-weight:600; }
+
+/* Expediente header */
+.casanova-expediente-head{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.casanova-expediente-head__title{ font-weight:900; font-size:1.1em; }
+.casanova-expediente-head__meta{ opacity:.75; }
+.casanova-expediente-head__state{ font-size:.9em; opacity:.8; white-space:nowrap; }
+.casanova-expediente-obs{ opacity:.85; line-height:1.5; }
+.casanova-expediente-back{ margin-top:12px; }
+
+/* Key-value blocks */
+.casanova-kv{ display:grid; gap:6px; opacity:.9; line-height:1.55; }
+.casanova-divider{ height:1px; background:#f1f1f1; margin:12px 0; }
+.casanova-pre{ white-space:pre-wrap; line-height:1.5; opacity:.9; }
+
+/* Reserva items (acordeón) */
+.casanova-item{ border:1px solid #f1f1f1; border-radius:12px; background:#fff; overflow:hidden; }
+.casanova-item + .casanova-item{ margin-top:10px; }
+.casanova-item--child{
+  margin-left:16px;
+}
+@media (max-width: 900px){
+  .casanova-item--child{ margin-left:10px; }
+}
+.casanova-item__summary{ list-style:none; cursor:pointer; display:flex; gap:12px; justify-content:space-between; align-items:flex-start; padding:12px; }
+.casanova-item__summary::-webkit-details-marker{ display:none; }
+.casanova-item__main{ min-width:0; }
+.casanova-item__title{ font-weight:900; }
+.casanova-item__desc{ opacity:.85; }
+.casanova-item__meta{ opacity:.65; font-size:.9em; margin-top:4px; }
+.casanova-item__side{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
+.casanova-item__pvp{ font-weight:900; white-space:nowrap; }
+.casanova-item__actions{ display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+.casanova-item__body{ padding:12px; border-top:1px solid #f1f1f1; }
+.casanova-item__extra{ margin-top:10px; }
+
+/* Small button variants */
+.casanova-btn--sm{ padding:6px 10px; border-radius:10px; font-weight:800; font-size:.9em; }
+.casanova-btn--ghost{ background:#fff; color:#111; border-color:#e5e7eb; }
+
+.casanova-chip{ display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid #e5e7eb; opacity:.75; font-weight:800; font-size:.85em; }
+
+/* Casanova toast notice */
+.casanova-toast{
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 99999;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(20,20,20,.92);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.2;
+  box-shadow: 0 8px 22px rgba(0,0,0,.25);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .18s ease, transform .18s ease;
+  pointer-events: none;
+}
+.casanova-toast.is-visible{
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* =========================
+ * Mulligans (loyalty)
+ * ========================= */
+.casanova-mulligans-card{
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+
+/* =========================
+ * Próximo viaje (dashboard)
+ * ========================= */
+.casanova-nexttrip-card{
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+.casanova-nexttrip-card__top{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+.casanova-nexttrip-card__title{ font-weight:700; font-size:14px; opacity:.85; }
+.casanova-nexttrip-card__badge{
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: rgba(15,118,110,.08);
+  color: #0f766e;
+  font-weight: 900;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.casanova-nexttrip-card__headline{ font-weight:900; font-size:18px; letter-spacing:-.01em; margin-top:8px; }
+.casanova-nexttrip-card__meta{ opacity:.75; margin-top:4px; font-size:13px; }
+.casanova-nexttrip-card__grid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:14px; }
+@media (max-width: 520px){ .casanova-nexttrip-card__grid{ grid-template-columns: 1fr; } }
+.casanova-nexttrip-card__stat{ padding:12px 14px; border-radius:14px; border:1px solid rgba(0,0,0,.06); background: rgba(0,0,0,.02); }
+.casanova-nexttrip-card__label{ opacity:.7; font-size:12px; font-weight:700; }
+.casanova-nexttrip-card__value{ font-weight:900; font-size:18px; margin-top:4px; }
+.casanova-nexttrip-card__value--warn{ color:#8a5a00; }
+.casanova-nexttrip-card__cta{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:14px; }
+.casanova-nexttrip-card__hint{ opacity:.75; font-size:13px; }
+.casanova-nexttrip-card__empty{ margin-top:10px; opacity:.75; }
+
+.casanova-mulligans-card__top{
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.casanova-mulligans-card__title{
+  font-weight: 700;
+  font-size: 14px;
+  opacity: .85;
+}
+
+.casanova-mulligans-card__tier{
+  /* wrapper solo para alineación, sin estilo de "badge" */
+  display: flex;
+  align-items: center;
+}
+
+.casanova-mulligans-card__big{
+  font-weight: 800;
+  font-size: 42px;
+  line-height: 1;
+  margin: 6px 0 10px;
+}
+
+.casanova-mulligans-card__meta{
+  font-size: 13px;
+  opacity: .85;
+  margin-bottom: 12px;
+}
+
+/* ===== Mulligans: color por tier via CSS variables ===== */
+.casanova-mulligans-card{
+  --tier-color: #2E7D32; /* default Birdie */
+}
+
+/* Tier colors */
+.casanova-mulligans-card.is-birdie{ --tier-color: #2E7D32; }
+.casanova-mulligans-card.is-eagle{ --tier-color: #1E3A5F; }
+.casanova-mulligans-card.is-eagle_plus{ --tier-color: #6d8196; }
+.casanova-mulligans-card.is-eagle-plus{ --tier-color: #6d8196; }
+.casanova-mulligans-card.is-albatross{ --tier-color: #EAA221; }
+
+/* Badge */
+.casanova-mulligans-badge{
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .02em;
+  color: #fff;
+  background: var(--tier-color);
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+}
+
+/* Progress container */
+.casanova-progress{
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.08);
+  overflow: hidden;
+}
+
+/* Progress bar (muy específico para que no lo pise nada) */
+.casanova-mulligans-card .casanova-progress > span,
+.casanova-mulligans-card .casanova-progress .casanova-progress__bar{
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--tier-color);
+  border-radius: 999px;
+  transition: width .25s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
+}
+
+.casanova-mulligans-card__hint{
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: .9;
+}
+.casanova-mulligans-updated{
+  margin-top: 8px;
+  font-size: 13px;
+  color: #777;
+}
+
+/* Movimientos plegables dentro de la card */
+.casanova-mulligans-details{
+  margin-top: 12px;
+  border-top: 1px solid rgba(0,0,0,.06);
+  padding-top: 10px;
+}
+
+.casanova-mulligans-details > summary{
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  opacity: .9;
+}
+
+.casanova-mulligans-details__inner{
+  margin-top: 10px;
+}
+
+/* Ledger embebido: sin borde extra */
+.casanova-mulligans-ledger.is-embedded{
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.casanova-mulligans-ledger.is-embedded .casanova-mulligans-ledger__table th,
+.casanova-mulligans-ledger.is-embedded .casanova-mulligans-ledger__table td{
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+/* Botón cn Spinner*/
+.casanova-btn-submit{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 0;
+  background: #16a34a;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.casanova-btn-submit:hover{ filter: brightness(0.95); }
+.casanova-btn-submit:disabled{ opacity: .7; cursor: not-allowed; }
+
+
+.casanova-btn-submit .spinner{
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: casanova-spin .7s linear infinite;
+  display: none;
+}
+
+.casanova-btn-submit.is-loading .spinner{
+  display: inline-block;
+}
+
+.casanova-btn-submit.is-loading .label{
+  opacity: .7;
+}
+
+@keyframes casanova-spin{
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Mulligans ledger ===== */
+.casanova-mulligans-ledger{
+  margin-top: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+}
+
+.casanova-mulligans-ledger__title{
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 10px;
+  opacity: .9;
+}
+
+.casanova-mulligans-ledger__table{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.casanova-mulligans-ledger__table th,
+.casanova-mulligans-ledger__table td{
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  vertical-align: top;
+}
+
+.casanova-mulligans-ledger__table th{
+  font-weight: 700;
+  opacity: .8;
+  text-align: left;
+}
+
+.casanova-mulligans-ledger__table .is-right{
+  text-align: right;
+  white-space: nowrap;
+}
+
+.casanova-mulligans-ledger__table .is-plus{
+  color: #2E7D32;
+  font-weight: 700;
+}
+
+.casanova-mulligans-ledger__table .is-minus{
+  color: #B91C1C;
+  font-weight: 700;
+}
+
+/* === Portal App layout (sidebar + main) === */
+.casanova-app{
+  display:flex;
+  gap:24px;
+  align-items:stretch;
+}
+
+.casanova-sidebar{
+  width:260px;
+  flex:0 0 260px;
+}
+
+.casanova-sidebar-inner{
+  position:sticky;
+  top:24px;
+}
+
+.casanova-nav{
+  background:#fff;
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:14px;
+  padding:12px;
+}
+
+.casanova-nav-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  text-decoration:none;
+  color:inherit;
+}
+
+.casanova-nav-item:hover{
+  background:rgba(0,0,0,.04);
+}
+
+.casanova-nav-item.is-active{
+  background:rgba(205,165,0,.12);
+  border:1px solid rgba(205,165,0,.35);
+}
+
+.casanova-nav-spinner{ margin-left:auto; display:flex; align-items:center; }
+.casanova-nav-spinner .spinner{
+  width:14px; height:14px;
+  border:2px solid rgba(0,0,0,.15);
+  border-top-color: rgba(0,0,0,.55);
+  border-radius:50%;
+  animation: casanova-spin .7s linear infinite;
+  display:none;
+}
+.casanova-nav-item.is-loading .casanova-nav-spinner .spinner{ display:inline-block; }
+
+.casanova-nav-ico{ width:20px; text-align:center; }
+
+.casanova-main{ flex:1 1 auto; min-width:0; }
+.casanova-main-inner{ min-width:0; }
+
+/* Dashboard cards */
+.casanova-cards{
+  display:grid;
+  grid-template-columns:repeat(12, 1fr);
+  gap:16px;
+}
+
+.casanova-card{
+  grid-column:span 4;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:14px;
+  padding:16px;
+}
+
+.casanova-card-h{
+  font-weight:600;
+  margin-bottom:10px;
+}
+
+.casanova-card-kpi{
+  font-size:28px;
+  line-height:1.1;
+  margin-bottom:6px;
+}
+
+.casanova-card-meta{ font-size:13px; }
+.casanova-muted{ opacity:.65; }
+
+.casanova-pill{
+  display:inline-block;
+  margin-top:10px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  background:rgba(0,0,0,.05);
+}
+
+.casanova-btn{
+  display:inline-block;
+  padding:8px 12px;
+  border-radius:10px;
+  text-decoration:none;
+  border:1px solid rgba(0,0,0,.12);
+}
+
+.casanova-btn:hover{ background:rgba(0,0,0,.04); }
+
+.casanova-card-actions{ margin-top:12px; }
+
+/* Responsive */
+@media (max-width: 900px){
+  .casanova-app{ display:block; }
+  .casanova-sidebar{ width:auto; }
+  .casanova-sidebar-inner{ position:static; top:auto; margin-bottom:16px; }
+  .casanova-card{ grid-column:span 12; }
+}
+
+
+/* ====== App Shell (Sidebar) - refresh 2025-ish ====== */
+.casanova-nav{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.04);
+}
+
+.casanova-nav-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 6px 8px 12px;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  margin-bottom: 10px;
+}
+
+.casanova-nav-brand{
+  font-weight: 700;
+  letter-spacing: .2px;
+  font-size: 14px;
+  opacity: .85;
+}
+
+.casanova-nav-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration:none;
+  color: inherit;
+  border: 1px solid transparent;
+  transition: background .15s ease, border-color .15s ease, transform .05s ease;
+}
+
+.casanova-nav-item:hover{
+  background: rgba(0,0,0,.03);
+  border-color: rgba(0,0,0,.06);
+}
+
+.casanova-nav-item:active{
+  transform: translateY(1px);
+}
+
+.casanova-nav-item.is-active{
+  background: rgba(13, 148, 136, .10);
+  border-color: rgba(13, 148, 136, .25);
+}
+
+.casanova-nav-icon{
+  width: 18px;
+  height: 18px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color: rgba(0,0,0,.62);
+}
+
+.casanova-nav-item.is-active .casanova-nav-icon{
+  color: rgba(13, 148, 136, 1);
+}
+
+.casanova-nav-icon svg{
+  width: 18px;
+  height: 18px;
+}
+
+.casanova-nav-label{
+  font-size: 14px;
+  font-weight: 600;
+  opacity: .9;
+}
+
+
+
+/* Next trip variants */
+.casanova-nexttrip-card--hero{
+  padding: 22px;
+}
+.casanova-nexttrip-card--hero .casanova-nexttrip-card__title{
+  font-size: 1.15rem;
+}
+.casanova-nexttrip-card--compact{
+  padding: 14px;
+}
+.casanova-nexttrip-card--compact .casanova-nexttrip-card__stats{
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.casanova-nexttrip-legacy{
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.casanova-nexttrip-legacy__title{font-weight: 650;}
+.casanova-nexttrip-legacy__meta{opacity:.75; margin-top:4px;}
+.casanova-nexttrip-legacy__money{margin-top:8px;}
+.casanova-nexttrip-legacy__link{display:inline-block; margin-top:10px;}
+
+
+
+/* =========================
+   Card: Estado de pagos
+   ========================= */
+.casanova-paycard{
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 18px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0,0,0,.06);
+}
+.casanova-paycard__top{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  margin-bottom: 10px;
+}
+.casanova-paycard__title{
+  font-weight: 900;
+  font-size: 14px;
+  color: rgba(0,0,0,.72);
+  letter-spacing:-.01em;
+}
+.casanova-paycard__status{
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  border:1px solid rgba(0,0,0,.10);
+}
+.casanova-paycard__status--ok{
+  background: rgba(15,118,110,.08);
+  color:#0f766e;
+}
+.casanova-paycard__status--warn{
+  background: rgba(180,83,9,.10);
+  color:#92400e;
+}
+.casanova-paycard__numbers{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 10px 0 8px;
+}
+.casanova-paycard__label{
+  font-size: 12px;
+  color: rgba(0,0,0,.55);
+  font-weight: 800;
+}
+.casanova-paycard__value{
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing:-.01em;
+  margin-top: 2px;
+}
+.casanova-paycard__bar{
+  height: 10px;
+  background: rgba(0,0,0,.06);
+  border-radius: 999px;
+  overflow:hidden;
+  margin: 10px 0 8px;
+}
+.casanova-paycard__barFill{
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--casanova-accent);
+}
+.casanova-paycard__meta{
+  font-size: 12px;
+  color: rgba(0,0,0,.60);
+  font-weight: 700;
+}
+.casanova-paycard__actions{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  margin-top: 12px;
+  flex-wrap:wrap;
+}
+.casanova-paycard--empty{
+  box-shadow:none;
+  background: rgba(0,0,0,.02);
+}
+.casanova-paycard__empty{
+  color: rgba(0,0,0,.62);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 0 2px;
+}
+
+
+
+/* --- Cards: Próxima acción --- */
+.casanova-actioncard{ background:var(--casanova-bg); border:1px solid #e5e7eb; border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+.casanova-actioncard__top{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.casanova-actioncard__title{ font-weight:700; font-size:14px; color:#111827; }
+.casanova-actioncard__badge{ font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid rgba(0,0,0,.08); background:#f3f4f6; color:#374151; white-space:nowrap; }
+.casanova-actioncard__msg{ margin-top:10px; font-size:14px; color:#111827; }
+.casanova-actioncard__sub{ margin-top:6px; font-size:12px; color:#6b7280; }
+.casanova-actioncard__footer{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+.casanova-actioncard--ok .casanova-actioncard__badge{ background:rgba(16,185,129,.12); color:#065f46; border-color:rgba(16,185,129,.25); }
+.casanova-actioncard--warn .casanova-actioncard__badge{ background:rgba(245,158,11,.14); color:#92400e; border-color:rgba(245,158,11,.25); }
+.casanova-actioncard--info .casanova-actioncard__badge{ background:rgba(59,130,246,.12); color:#1e40af; border-color:rgba(59,130,246,.25); }
+
+/* ===== Portal menu badge ===== */
+.casanova-nav-item{position:relative;}
+.casanova-nav-badge{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:18px;
+  height:18px;
+  padding:0 6px;
+  border-radius:999px;
+  font-size:12px;
+  line-height:1;
+  background:var(--casanova-accent, #2563eb);
+  color:#fff;
+}
+
+/* ===== Pills ===== */
+.casanova-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:2px 10px;
+  border-radius:999px;
+  font-size:12px;
+  line-height:1.4;
+  background:rgba(0,0,0,0.06);
+  color:rgba(0,0,0,0.7);
+}
+.casanova-pill--new{
+  background:color-mix(in srgb, var(--casanova-accent, #2563eb) 15%, #fff 85%);
+  color:color-mix(in srgb, var(--casanova-accent, #2563eb) 80%, #000 20%);
+  border:1px solid color-mix(in srgb, var(--casanova-accent, #2563eb) 25%, #fff 75%);
+}
+
+/* ===== Bonos list ===== */
+.casanova-bonos{display:grid;gap:14px;}
+.casanova-card--bonos .casanova-card__meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.casanova-list{display:flex;flex-direction:column;gap:10px;}
+.casanova-list__row{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  justify-content:space-between;
+  padding:10px 12px;
+  border:1px solid rgba(0,0,0,0.08);
+  border-radius:12px;
+  background:#fff;
+}
+.casanova-list__title{font-weight:600;}
+.casanova-list__sub{font-size:13px;margin-top:2px;}
+.casanova-list__actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+
+
+/* Próxima acción: meta */
+.casanova-actioncard__meta{margin:10px 0 0;font-size:13px;}
+
+/* Próxima acción: nota secundaria sobre otro viaje cercano */
+.casanova-actioncard__note{
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 12px;
+  background: rgba(0,0,0,.02);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.casanova-actioncard__note a{ text-decoration: underline; }
+.casanova-actioncard__note-amount{ margin-left: 6px; font-weight: 600; }
+
+
+/* ===== Mensajes ===== */
+.casanova-messages{display:flex;flex-direction:column;gap:12px;}
+.casanova-message{padding:12px 14px;border:1px solid rgba(0,0,0,.08);border-radius:14px;background:#fff;}
+.casanova-message__meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;opacity:.8;margin-bottom:6px;}
+.casanova-message__subject{font-weight:600;margin-bottom:6px;}
+.casanova-message__body{white-space:pre-wrap;line-height:1.4;}
+.casanova-messages-title{margin:0 0 10px;}
+.casanova-messages-context{margin:0 0 12px;font-size:13px;opacity:.85;}
+.casanova-messages-empty{opacity:.7;}
+
+/* Dashboard: card mensajes */
+.casanova-msgcard__top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.casanova-msgcard__title{font-weight:700;}
+.casanova-msgcard__exp{font-size:12px;opacity:.75;flex:1 1 100%;margin-top:2px;}
+.casanova-msgcard__badge{padding:4px 10px;border-radius:999px;font-size:12px;background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.22);}
+.casanova-msgcard__body{margin-top:10px;line-height:1.35;}
+.casanova-msgcard__meta{margin-top:6px;font-size:12px;opacity:.75;}
+.casanova-msgcard__cta{margin-top:12px;}

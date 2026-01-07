@@ -1,0 +1,29 @@
+{
+  "unread": 2,
+  "items": [
+    {
+      "id": "m1",
+      "date": "2026-01-04T18:20:00+01:00",
+      "author": "Casanova Golf",
+      "direction": "agency",
+      "content": "Welcome pack listo. Te confirmo tee times y transfers mañana.",
+      "expediente_id": 12345
+    },
+    {
+      "id": "m2",
+      "date": "2026-01-05T10:15:00+01:00",
+      "author": "Casanova Golf",
+      "direction": "agency",
+      "content": "Te he dejado dos opciones de horarios para el 2º día. ¿Prefieres mañana o tarde?",
+      "expediente_id": 12345
+    },
+    {
+      "id": "m3",
+      "date": "2026-01-03T09:00:00+01:00",
+      "author": "Casanova Golf",
+      "direction": "agency",
+      "content": "Para Costa del Sol, en cuanto tengamos el ok de vuelos, cerramos los tee times.",
+      "expediente_id": 23456
+    }
+  ]
+}

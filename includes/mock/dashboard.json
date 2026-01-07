@@ -1,0 +1,39 @@
+{
+  "status": "mock",
+  "giav": {"ok": true, "source": "mock", "error": null},
+  "mulligans": {"points": 6217, "tier": "eagle", "last_sync": 1767362649},
+  "trips": [
+    {
+      "id": 12345,
+      "title": "Portugal Golf Escape",
+      "code": "PT-12345",
+      "status": "Confirmado",
+      "date_range": "2026-02-10 – 2026-02-14",
+      "url": ""
+    },
+    {
+      "id": 23456,
+      "title": "Costa del Sol",
+      "code": "ES-23456",
+      "status": "Borrador",
+      "date_range": "2026-04-02 – 2026-04-06",
+      "url": ""
+    }
+  ],
+  "next_trip": {
+    "id": 12345,
+    "title": "Portugal Golf Escape",
+    "code": "PT-12345",
+    "status": "Confirmado",
+    "date_range": "2026-02-10 – 2026-02-14",
+    "url": ""
+  },
+  "payments": {"total": 4500, "paid": 1500, "pending": 3000, "url": ""},
+  "messages": {
+    "unread": 2,
+    "snippet": "Welcome pack listo. Te confirmo tee times y transfers mañana.",
+    "when": "Hace 2 horas",
+    "trip_label": "Portugal Golf Escape (PT-12345)",
+    "url": ""
+  }
+}

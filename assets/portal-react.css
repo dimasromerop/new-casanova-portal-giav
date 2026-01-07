@@ -1,0 +1,13 @@
+/* Minimal styles for React shell (no intenta competir con tu CSS del portal) */
+#casanova-portal-root { min-height: 60vh; }
+.cg-wrap { max-width: 980px; margin: 24px auto; padding: 0 16px; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+.cg-topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.cg-brand { font-weight: 650; letter-spacing: .2px; }
+.cg-tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cg-chip { font-size: 12px; padding: 3px 8px; border: 1px solid rgba(0,0,0,.15); border-radius: 999px; }
+.cg-card { border: 1px solid rgba(0,0,0,.12); border-radius: 12px; padding: 14px; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.05); }
+.cg-title { font-size: 16px; font-weight: 650; margin-bottom: 8px; }
+.cg-muted { color: rgba(0,0,0,.6); font-size: 13px; }
+.cg-pre { background: rgba(0,0,0,.04); padding: 10px; border-radius: 10px; overflow: auto; max-height: 55vh; }
+.cg-btn { padding: 7px 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,.18); background: #fff; cursor: pointer; font-size: 13px; }
+.cg-btn.is-active { border-color: rgba(0,0,0,.5); }
