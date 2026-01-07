@@ -6,10 +6,6 @@ if (!defined('ABSPATH')) exit;
  *
  * Devuelve un item por expediente con el último mensaje (si existe) y
  * un contador global de no leídos.
- *
- * Nota: GIAV es read-only desde el portal. El "seen" real puede gestionarse
- * via user_meta (si existen helpers legacy); si no, el frontend puede
- * complementar con localStorage.
  */
 class Casanova_Inbox_Service {
 
@@ -20,7 +16,7 @@ class Casanova_Inbox_Service {
     $mock = (int) $request->get_param('mock');
     if ($mock && !current_user_can('manage_options')) $mock = 0;
 
-    // Lista de viajes desde el dashboard (fuente única)
+    // Dashboard ya resuelve trips y (en mock) estructura base.
     $dash = Casanova_Dashboard_Service::build_for_user($user_id)->to_array();
     $trips = array_values((array) ($dash['trips'] ?? []));
 
@@ -40,7 +36,7 @@ class Casanova_Inbox_Service {
       $exp = (int) ($t['id'] ?? 0);
       if (!$exp) continue;
 
-      // Reutiliza el servicio de mensajes (filtrado por expediente)
+      // Reutiliza service de mensajes para obtener lista y unread por expediente.
       $req2 = new WP_REST_Request('GET', '/casanova/v1/messages');
       $req2->set_param('mock', $mock ? 1 : 0);
       $req2->set_param('expediente', $exp);
