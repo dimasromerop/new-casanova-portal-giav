@@ -20,13 +20,10 @@ class Casanova_Inbox_Service {
     $mock = (int) $request->get_param('mock');
     if ($mock && !current_user_can('manage_options')) $mock = 0;
 
-    $idCliente = (int) get_user_meta($user_id, 'casanova_idcliente', true);
-
-    // Trips del dashboard (fuente única de la lista)
+    // Lista de viajes desde el dashboard (fuente única)
     $dash = Casanova_Dashboard_Service::build_for_user($user_id)->to_array();
     $trips = array_values((array) ($dash['trips'] ?? []));
 
-    // Si no hay trips, devolvemos vacío (sin error)
     if (!$trips) {
       return [
         'status' => $mock ? 'mock' : 'ok',
@@ -36,7 +33,6 @@ class Casanova_Inbox_Service {
       ];
     }
 
-    // Para cada expediente, pide mensajes filtrados (último mensaje)
     $items = [];
     $unread_total = 0;
 
@@ -44,7 +40,7 @@ class Casanova_Inbox_Service {
       $exp = (int) ($t['id'] ?? 0);
       if (!$exp) continue;
 
-      // Reutiliza service de mensajes (filtra por expediente)
+      // Reutiliza el servicio de mensajes (filtrado por expediente)
       $req2 = new WP_REST_Request('GET', '/casanova/v1/messages');
       $req2->set_param('mock', $mock ? 1 : 0);
       $req2->set_param('expediente', $exp);
@@ -63,37 +59,21 @@ class Casanova_Inbox_Service {
       $unread = (int) ($m['unread'] ?? 0);
       $unread_total += $unread;
 
-      if ($last) {
-        $items[] = [
-          'expediente_id'   => $exp,
-          'trip_title'      => (string) ($t['title'] ?? ''),
-          'trip_code'       => (string) ($t['code'] ?? ''),
-          'trip_status'     => (string) ($t['status'] ?? ''),
-          'date_start'      => (string) ($t['date_start'] ?? ''),
-          'date_end'        => (string) ($t['date_end'] ?? ''),
-          'last_message_at' => (string) ($last['date'] ?? ''),
-          'author'          => (string) ($last['author'] ?? ''),
-          'direction'       => (string) ($last['direction'] ?? ''),
-          'content'         => (string) ($last['content'] ?? ''),
-        ];
-      } else {
-        // Si no hay mensaje, aun así devolvemos el viaje para UX consistente
-        $items[] = [
-          'expediente_id'   => $exp,
-          'trip_title'      => (string) ($t['title'] ?? ''),
-          'trip_code'       => (string) ($t['code'] ?? ''),
-          'trip_status'     => (string) ($t['status'] ?? ''),
-          'date_start'      => (string) ($t['date_start'] ?? ''),
-          'date_end'        => (string) ($t['date_end'] ?? ''),
-          'last_message_at' => null,
-          'author'          => '',
-          'direction'       => '',
-          'content'         => '',
-        ];
-      }
+      $items[] = [
+        'expediente_id'   => $exp,
+        'trip_title'      => (string) ($t['title'] ?? ''),
+        'trip_code'       => (string) ($t['code'] ?? ''),
+        'trip_status'     => (string) ($t['status'] ?? ''),
+        'date_start'      => (string) ($t['date_start'] ?? ''),
+        'date_end'        => (string) ($t['date_end'] ?? ''),
+        'last_message_at' => $last ? (string) ($last['date'] ?? '') : null,
+        'author'          => $last ? (string) ($last['author'] ?? '') : '',
+        'direction'       => $last ? (string) ($last['direction'] ?? '') : '',
+        'content'         => $last ? (string) ($last['content'] ?? '') : '',
+        'unread'          => $unread,
+      ];
     }
 
-    // Orden: más reciente arriba
     usort($items, function($a,$b){
       $ta = !empty($a['last_message_at']) ? strtotime((string)$a['last_message_at']) : 0;
       $tb = !empty($b['last_message_at']) ? strtotime((string)$b['last_message_at']) : 0;
