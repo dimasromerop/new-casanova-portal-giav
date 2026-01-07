@@ -1,0 +1,5 @@
+# Ignore node_modules directory
+node_modules/
+
+# Uncomment to ignore node_modules anywhere in the repo
+# **/node_modules/
