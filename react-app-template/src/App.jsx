@@ -76,6 +76,26 @@ function Skeleton({ lines = 3 }) {
   );
 }
 
+
+function TableSkeleton({ rows = 6, cols = 7 }) {
+  return (
+    <div className="cp-table-skel" aria-hidden="true">
+      <div className="cp-table-skel__row is-head">
+        {Array.from({ length: cols }).map((_, i) => (
+          <div key={i} className="cp-table-skel__cell" />
+        ))}
+      </div>
+      {Array.from({ length: rows }).map((_, r) => (
+        <div key={r} className="cp-table-skel__row">
+          {Array.from({ length: cols }).map((_, c) => (
+            <div key={c} className="cp-table-skel__cell" />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DisabledHint({ reason, children }) {
   return (
     <span className="cp-disabledhint" title={reason}>
@@ -601,7 +621,7 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
 
       <div style={{ marginTop: 14 }}>
         {loading ? (
-          <div className="cp-notice">Cargando expediente…</div>
+          <div className="cp-card" style={{ background: "#fff" }}><div className="cp-card-title">Cargando expediente</div><Skeleton lines={8} /></div>
         ) : err ? (
           <div className="cp-notice is-warn">No se puede cargar el expediente ahora mismo.</div>
         ) : null}
@@ -901,7 +921,10 @@ export default function App() {
 
         {loadingDash && !dashboard ? (
           <div className="cp-content">
-            <div className="cp-notice">Cargando…</div>
+            <div className="cp-card" style={{ background: "#fff" }}>
+              <div className="cp-card-title">Cargando</div>
+              <Skeleton lines={8} />
+            </div>
           </div>
         ) : dashErr ? (
           <div className="cp-content">
