@@ -348,9 +348,9 @@ a { color: inherit; text-decoration: none; }
 .cp-skeleton__line{
   height:12px; border-radius:999px;
   background: linear-gradient(90deg,
-    color-mix(in srgb, var(--bg) 75%, var(--surface)),
-    color-mix(in srgb, var(--bg) 55%, var(--surface)),
-    color-mix(in srgb, var(--bg) 75%, var(--surface))
+    color-mix(in srgb, var(--text) 10%, var(--surface)),
+    color-mix(in srgb, var(--text) 18%, var(--surface)),
+    color-mix(in srgb, var(--text) 10%, var(--surface))
   );
   background-size: 200% 100%;
   animation: cp-shimmer 1.2s infinite linear;
@@ -438,12 +438,39 @@ a { color: inherit; text-decoration: none; }
 .cp-table-skel__cell{
   height:12px;
   border-radius:999px;
+}
+  .cp-table-skel__cell {
   background: linear-gradient(90deg,
-    color-mix(in srgb, var(--bg) 75%, var(--surface)),
-    color-mix(in srgb, var(--bg) 55%, var(--surface)),
-    color-mix(in srgb, var(--bg) 75%, var(--surface))
+    color-mix(in srgb, var(--text) 6%, var(--surface)),
+    color-mix(in srgb, var(--text) 12%, var(--surface)),
+    color-mix(in srgb, var(--text) 6%, var(--surface))
   );
   background-size: 200% 100%;
   animation: cp-shimmer 1.2s infinite linear;
+}
+
+
+/* Table skeleton visibility + sizing */
+.cp-table-skel{ width:100%;}
+.cp-table-skel__row{ width:100%; min-width: 980px; }
+.cp-table-skel__cell{
+  height:12px;
+  border-radius:999px;
+   background: linear-gradient(90deg,
+    color-mix(in srgb, var(--text) 6%, var(--surface)),
+    color-mix(in srgb, var(--text) 12%, var(--surface)),
+    color-mix(in srgb, var(--text) 6%, var(--surface))
+  );
+  background-size: 200% 100%;
+  animation: cp-shimmer 1.2s infinite linear;
+}
+
+
+/* Wrap to make skeleton/table feel identical */
+.cp-table-wrap{
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  overflow-x: auto;
 }
 

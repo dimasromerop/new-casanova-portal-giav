@@ -924,7 +924,7 @@ export default function App() {
             <div className="cp-card" style={{ background: "#fff" }}>
               <div className="cp-card-title">{(route.view === "viajes" || route.view === "trips") ? "Tus viajes" : "Cargando"}</div>
               {(route.view === "viajes" || route.view === "trips") ? (
-                <div style={{ marginTop: 14 }}>
+                <div className="cp-table-wrap" style={{ marginTop: 14 }}>
                   <TableSkeleton rows={7} cols={8} />
                 </div>
               ) : (
