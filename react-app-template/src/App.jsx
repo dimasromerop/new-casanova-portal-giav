@@ -404,176 +404,92 @@ function MessagesTimeline({ expediente, mock, onLatestTs, onSeen }) {
   );
 }
 
-function InboxView({ mock, dashboard, onLatestTs, onSeen }) {
-  const trips = Array.isArray(dashboard?.trips) ? dashboard.trips : [];
-  const [state, setState] = useState({ loading: true, error: null, items: [] });
+function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
+  const items = Array.isArray(inbox?.items) ? inbox.items : [];
+
+  const sorted = useMemo(() => {
+    return items
+      .slice()
+      .sort((a, b) => {
+        const ta = a?.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+        const tb = b?.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+        return tb - ta;
+      });
+  }, [items]);
 
   useEffect(() => {
-    let alive = true;
-
-    async function load() {
-      try {
-        setState({ loading: true, error: null, items: [] });
-
-        const results = await Promise.all(
-          trips.map(async (t) => {
-            try {
-              const params = new URLSearchParams();
-              if (mock) params.set("mock", "1");
-              params.set("expediente", String(t.id));
-              const d = await api(`/messages?${params.toString()}`);
-              const items = Array.isArray(d?.items) ? d.items : [];
-              if (items.length === 0) return null;
-
-              const sorted = items
-                .slice()
-                .sort((a, b) => new Date(b?.date || 0).getTime() - new Date(a?.date || 0).getTime());
-              const last = sorted[0];
-
-              return {
-                expediente_id: t.id,
-                trip_title: t.title,
-                trip_code: t.code,
-                trip_status: t.status,
-                date: last?.date,
-                author: last?.author || (last?.direction === "agency" ? "Casanova Golf" : "Tú"),
-                direction: last?.direction,
-                content: last?.content || "",
-              };
-            } catch (e) {
-              return null;
-            }
-          })
-        );
-
-        const cleaned = results
-          .filter(Boolean)
-          .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-
-        const latestTs = cleaned.length
-          ? Math.max(...cleaned.map((x) => new Date(x?.date || 0).getTime()).filter((n) => Number.isFinite(n)))
-          : 0;
-
-        if (latestTs && typeof onLatestTs === "function") onLatestTs(latestTs);
-
-        if (!alive) return;
-        setState({ loading: false, error: null, items: cleaned });
-      } catch (e) {
-        if (!alive) return;
-        setState({ loading: false, error: e, items: [] });
-      }
-    }
-
-    load();
-    return () => {
-      alive = false;
-    };
-  }, [mock, dashboard]);
-
-  const unreadCount = typeof dashboard?.messages?.unread === "number" ? dashboard.messages.unread : 0;
+    if (!sorted.length) return;
+    const latest = sorted.reduce((max, it) => {
+      const t = it?.last_message_at ? new Date(it.last_message_at).getTime() : 0;
+      return t > max ? t : max;
+    }, 0);
+    if (latest) onLatestTs?.(latest);
+  }, [sorted, onLatestTs]);
 
   useEffect(() => {
-    if (typeof onSeen === "function") onSeen();
-  }, [onSeen]);
+    // cuando el usuario entra en Inbox, consideramos que ha "visto" los mensajes
+    onSeen?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (loading) return <Skeleton title="Mensajes" rows={3} />;
+  if (error)
+    return (
+      <div className="cp-card">
+        <div className="cp-card-title">Mensajes</div>
+        <div className="cp-notice">No se pueden cargar los datos ahora mismo. Intenta de nuevo en unos minutos.</div>
+      </div>
+    );
+
+  const status = inbox?.status === "mock" || mock ? "mock" : "ok";
+
+  if (!sorted.length)
+    return (
+      <div className="cp-card">
+        <div className="cp-card-title">Mensajes</div>
+        <div className="cp-notice">No hay mensajes (o no disponibles ahora).</div>
+      </div>
+    );
 
   return (
-    <div className="cp-content" style={{ maxWidth: 1200, width: "100%", margin: "0 auto" }}>
-      <div className="cp-card" style={{ background: "#fff" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            marginBottom: 12,
-          }}
-        >
-          <div>
-            <div className="cp-card-title" style={{ margin: 0 }}>
-              Mensajes
+    <div className="cp-card">
+      <div className="cp-card-title">Mensajes</div>
+      {status === "mock" ? <div className="cp-chip">Modo prueba</div> : null}
+
+      <div className="cp-inbox-list">
+        {sorted.map((it) => (
+          <button
+            key={String(it.expediente_id)}
+            className="cp-inbox-item"
+            onClick={() => {
+              const params = new URLSearchParams(window.location.search);
+              params.set("view", "trip");
+              params.set("trip", String(it.expediente_id));
+              // abre directamente pestaña Mensajes
+              params.set("tab", "messages");
+              window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }}
+          >
+            <div className="cp-inbox-left">
+              <div className="cp-inbox-title">
+                {it.trip_title || "Viaje"}{" "}
+                <span className="cp-muted">
+                  {it.trip_code ? `· ${it.trip_code}` : ""} {it.trip_status ? `· ${it.trip_status}` : ""}
+                </span>
+              </div>
+              <div className="cp-inbox-snippet">{it.content || "Sin mensajes"}</div>
             </div>
-            <div className="cp-card-sub">Últimos mensajes por viaje</div>
-          </div>
-          {unreadCount > 0 ? (
-            <div className="cp-chip">{unreadCount} sin leer</div>
-          ) : (
-            <div className="cp-chip">Al día</div>
-          )}
-        </div>
-
-        {state.loading ? (
-          <div className="cp-notice">Cargando mensajes…</div>
-        ) : state.error ? (
-          <div className="cp-notice is-warn">
-            No se pueden cargar los datos ahora mismo. Intenta de nuevo en unos minutos.
-          </div>
-        ) : state.items.length === 0 ? (
-          <div className="cp-notice">No hay mensajes disponibles ahora mismo.</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {state.items.map((m) => (
-              <button
-                key={`${m.expediente_id}`}
-                className="cp-inbox-row"
-                onClick={() => {
-                  setParam("view", "trip");
-                  setParam("expediente", String(m.expediente_id));
-                  setParam("tab", "messages");
-                }}
-                style={{
-                  textAlign: "left",
-                  border: "1px solid rgba(0,0,0,0.08)",
-                  borderRadius: 12,
-                  padding: 12,
-                  background: "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    alignItems: "baseline",
-                  }}
-                >
-                  <div style={{ fontWeight: 700 }}>
-                    {m.trip_title || "Viaje"}{" "}
-                    {m.trip_code ? (
-                      <span style={{ fontWeight: 600, opacity: 0.75 }}>· {m.trip_code}</span>
-                    ) : null}
-                  </div>
-                  <div style={{ fontSize: 12, opacity: 0.75 }}>{formatMsgDate(m.date)}</div>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 6,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ fontSize: 13, opacity: 0.85 }}>
-                    <span style={{ fontWeight: 600 }}>{m.author}:</span>{" "}
-                    <span style={{ opacity: 0.9 }}>
-                      {m.content.length > 160 ? m.content.slice(0, 160) + "…" : m.content}
-                    </span>
-                  </div>
-                  <div className="cp-chip" style={{ flex: "0 0 auto" }}>
-                    {m.trip_status || "—"}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+            <div className="cp-inbox-right">
+              <div className="cp-muted">{it.last_message_at ? formatMsgDate(it.last_message_at) : ""}</div>
+              {typeof it.unread === "number" && it.unread > 0 ? <span className="cp-badge">{it.unread}</span> : null}
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );
 }
-
 
 function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const trips = Array.isArray(dashboard?.trips) ? dashboard.trips : [];
@@ -850,6 +766,9 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dashErr, setDashErr] = useState(null);
 
+  const [inbox, setInbox] = useState(null);
+  const [inboxErr, setInboxErr] = useState(null);
+
   const [inboxLatestTs, setInboxLatestTs] = useState(() => lsGetInt(LS_KEYS.inboxLatestTs, 0));
   const [messagesLastSeenTs, setMessagesLastSeenTs] = useState(() => lsGetInt(LS_KEYS.messagesLastSeenTs, 0));
 
@@ -867,10 +786,16 @@ export default function App() {
 
       setDashErr(null);
       const qs = route.mock ? "?mock=1" : "";
-      const d = await api(`/dashboard${qs}`);
-      setDashboard(d);
+      const [dashRes, inboxRes] = await Promise.all([
+        api(`/dashboard${qs}`),
+        api(`/inbox${qs}`),
+      ]);
+      setDashboard(dashRes);
+      setInbox(inboxRes);
+      setInboxErr(null);
     } catch (e) {
       setDashErr(e);
+      setInboxErr(e);
     } finally {
       setIsRefreshing(false);
       setLoadingDash(false);
@@ -881,6 +806,18 @@ export default function App() {
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.mock]);
+
+  useEffect(() => {
+    const items = Array.isArray(inbox?.items) ? inbox.items : [];
+    if (!items.length) return;
+    const latest = items.reduce((max, it) => {
+      const d = it?.last_message_at || it?.date;
+      const t = d ? new Date(d).getTime() : 0;
+      return t > max ? t : max;
+    }, 0);
+    if (latest) handleLatestTs(latest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inbox]);
 
   function handleLatestTs(ts) {
     if (!ts || !Number.isFinite(ts)) return;
@@ -894,8 +831,9 @@ export default function App() {
     lsSetInt(LS_KEYS.messagesLastSeenTs, now);
   }
 
-  const unread = dashboard?.messages?.unread;
-  const unreadFromServer = typeof unread === "number" ? unread : 0;
+  const unreadInbox = inbox?.unread;
+  const unreadDash = dashboard?.messages?.unread;
+  const unreadFromServer = typeof unreadInbox === "number" ? unreadInbox : (typeof unreadDash === "number" ? unreadDash : 0);
 
   const unreadCount =
     inboxLatestTs > 0 && messagesLastSeenTs >= inboxLatestTs ? 0 : unreadFromServer;
@@ -939,7 +877,7 @@ export default function App() {
         ) : route.view === "trip" && route.expediente ? (
           <TripDetailView mock={route.mock} expediente={route.expediente} dashboard={dashboard} onLatestTs={handleLatestTs} onSeen={markMessagesSeen} />
         ) : route.view === "inbox" ? (
-          <InboxView mock={route.mock} dashboard={dashboard} onLatestTs={handleLatestTs} onSeen={markMessagesSeen} />
+          <InboxView mock={route.mock} inbox={inbox} loading={loadingDash} error={inboxErr} onLatestTs={handleLatestTs} onSeen={markMessagesSeen} />
         ) : (
           <div className="cp-content">
             <div className="cp-notice">Vista en construcción.</div>
