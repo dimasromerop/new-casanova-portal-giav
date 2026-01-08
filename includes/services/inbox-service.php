@@ -20,6 +20,45 @@ class Casanova_Inbox_Service {
     $dash = Casanova_Dashboard_Service::build_for_user($user_id)->to_array();
     $trips = array_values((array) ($dash['trips'] ?? []));
 
+    // En modo mock, si el dashboard no devuelve viajes (por usuario, permisos, etc.),
+    // generamos una lista mínima desde includes/mock/trip.json para poder testear UI.
+    if ($mock && (!$trips || !is_array($trips) || count($trips) === 0)) {
+      $trip_file = CASANOVA_GIAV_PLUGIN_PATH . 'includes/mock/trip.json';
+      $raw = file_exists($trip_file) ? file_get_contents($trip_file) : '';
+      $all = $raw ? json_decode($raw, true) : null;
+
+      if (is_array($all) && !isset($all['trip'])) {
+        foreach ($all as $k => $v) {
+          if (!is_array($v) || !isset($v['trip']) || !is_array($v['trip'])) continue;
+          $tr = $v['trip'];
+          $trips[] = [
+            'id'         => (int) ($tr['id'] ?? 0),
+            'title'      => (string) ($tr['title'] ?? ''),
+            'code'       => (string) ($tr['code'] ?? ''),
+            'status'     => (string) ($tr['status'] ?? ''),
+            'date_start' => (string) ($tr['date_start'] ?? ''),
+            'date_end'   => (string) ($tr['date_end'] ?? ''),
+          ];
+        }
+      } elseif (is_array($all) && isset($all['trip']) && is_array($all['trip'])) {
+        $tr = $all['trip'];
+        $trips[] = [
+          'id'         => (int) ($tr['id'] ?? 0),
+          'title'      => (string) ($tr['title'] ?? ''),
+          'code'       => (string) ($tr['code'] ?? ''),
+          'status'     => (string) ($tr['status'] ?? ''),
+          'date_start' => (string) ($tr['date_start'] ?? ''),
+          'date_end'   => (string) ($tr['date_end'] ?? ''),
+        ];
+      }
+
+      // Normaliza: elimina ids vacíos
+      $trips = array_values(array_filter($trips, function($t){
+        return !empty($t['id']);
+      }));
+    }
+
+
     if (!$trips) {
       return [
         'status' => $mock ? 'mock' : 'ok',
