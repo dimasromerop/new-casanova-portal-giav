@@ -26,10 +26,32 @@ class Casanova_Dashboard_Service {
     $base = function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/');
 
     // 1) Mulligans (datos locales)
-    $m = function_exists('casanova_mulligans_get_user') ? (array) casanova_mulligans_get_user($user_id) : [];
-    $m_points = isset($m['points']) ? (int) $m['points'] : 0;
-    $m_tier   = isset($m['tier']) ? (string) $m['tier'] : '';
-    $m_last   = isset($m['last_sync']) ? (int) $m['last_sync'] : 0;
+
+    $m_user = function_exists('casanova_mulligans_get_user') ? (array) casanova_mulligans_get_user($user_id) : [];
+    $m_points = isset($m_user['points']) ? (int) $m_user['points'] : 0;
+    $m_tier   = isset($m_user['tier']) ? (string) $m_user['tier'] : '';
+    $m_last   = isset($m_user['last_sync']) ? (int) $m_user['last_sync'] : 0;
+    $m_spend  = isset($m_user['spend']) ? (float) $m_user['spend'] : 0.0;
+    $m_earned = isset($m_user['earned']) ? (int) $m_user['earned'] : 0;
+    $m_bonus  = isset($m_user['bonus']) ? (int) $m_user['bonus'] : 0;
+    $m_used   = isset($m_user['used']) ? (int) $m_user['used'] : 0;
+
+    $m_ledger = [];
+    $ledger_raw = (string) get_user_meta($user_id, CASANOVA_MULL_META_LEDGER, true);
+    if ($ledger_raw) {
+      $decoded = json_decode($ledger_raw, true);
+      if (is_array($decoded)) {
+        // ordena por ts desc
+        usort($decoded, function($a, $b){
+          $ta = (int)($a['ts'] ?? 0);
+          $tb = (int)($b['ts'] ?? 0);
+          return $tb <=> $ta;
+        });
+        $m_ledger = array_slice($decoded, 0, 20);
+      }
+    }
+
+
 
     // 2) Viajes futuros (GIAV: expedientes)
     $trips = self::get_future_trips($idCliente);
@@ -48,6 +70,11 @@ class Casanova_Dashboard_Service {
         'points'    => $m_points,
         'tier'      => $m_tier,
         'last_sync' => $m_last,
+        'spend'     => $m_spend,
+        'earned'    => $m_earned,
+        'bonus'     => $m_bonus,
+        'used'      => $m_used,
+        'ledger'    => $m_ledger,
       ],
       'trips'    => $trips,
       'next_trip' => $next,

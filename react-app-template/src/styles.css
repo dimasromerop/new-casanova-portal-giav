@@ -448,3 +448,28 @@ a { color: inherit; text-decoration: none; }
   background-size: 200% 100%;
   animation: cp-shimmer 1.2s infinite linear;
 }
+
+/* Mulligans UI */
+.cp-grid-3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+.cp-grid-4{ display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
+@media (max-width: 980px){
+  .cp-grid-3{ grid-template-columns: 1fr; }
+  .cp-grid-4{ grid-template-columns: 1fr 1fr; }
+}
+.cp-pill{ padding:6px 10px; border-radius:999px; border:1px solid var(--border); background: var(--surface); font-weight:700; font-size:12px; }
+.cp-stat{ border:1px solid var(--border); border-radius:14px; padding:12px 14px; background: var(--surface); }
+.cp-stat-k{ color: var(--muted); font-size:12px; }
+.cp-stat-v{ font-size:22px; font-weight:800; margin-top:4px; }
+.cp-stat-s{ color: var(--muted); font-size:12px; margin-top:2px; }
+.cp-mini{ border:1px solid var(--border); border-radius:14px; padding:10px 12px; background: color-mix(in srgb, var(--surface) 88%, var(--bg)); }
+.cp-mini-k{ color: var(--muted); font-size:12px; }
+.cp-mini-v{ font-weight:800; margin-top:4px; }
+.cp-ledger{ display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+.cp-ledger-row{ display:flex; justify-content:space-between; gap:14px; padding:12px 14px; border:1px solid var(--border); border-radius:14px; background: var(--surface); }
+.cp-ledger-title{ font-weight:800; }
+.cp-ledger-sub{ color: var(--muted); font-size:12px; margin-top:2px; }
+.cp-ledger-right{ text-align:right; }
+.cp-ledger-points{ font-weight:900; }
+.cp-ledger-points.is-pos{ color: color-mix(in srgb, var(--primary, #0f3d2e) 75%, #000); }
+.cp-ledger-points.is-neg{ color: #b00020; }
+.cp-ledger-date{ color: var(--muted); font-size:12px; margin-top:2px; }

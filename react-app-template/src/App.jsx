@@ -218,6 +218,13 @@ function Sidebar({ view, unread = 0 }) {
           {/* Badge solo fuera de inbox/detalle-mensajes para no molestar */}
           {view !== "inbox" && unread > 0 ? <span className="cp-badge">{unread}</span> : null}
         </button>
+
+        <button
+          className={`cp-nav-btn ${view === "mulligans" ? "is-active" : ""}`}
+          onClick={() => setParam("view", "mulligans")}
+        >
+          Mulligans
+        </button>
       </nav>
 
       <div style={{ marginTop: "auto", padding: 10, color: "var(--muted)", fontSize: 12 }}>
@@ -497,7 +504,7 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (loading) return <Skeleton title="Mensajes" rows={3} />;
+  if (loading) return (<div className="cp-card"><div className="cp-card-title">Mensajes</div><Skeleton lines={6} /></div>);
   if (error)
     return (
       <div className="cp-card">
@@ -824,7 +831,127 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
 
 
 /* ===== App ===== */
-export default function App() {
+function MulligansView({ data }) {
+  const m = data?.mulligans || {};
+  const points = Number(m.points || 0);
+  const tier = String(m.tier || "birdie").toLowerCase();
+  const spend = Number(m.spend || 0);
+  const earned = Number(m.earned || 0);
+  const bonus = Number(m.bonus || 0);
+  const used = Number(m.used || 0);
+  const ledger = Array.isArray(m.ledger) ? m.ledger : [];
+
+  const tierLabel = (t) => {
+    if (t === "albatross") return "Albatross";
+    if (t === "eagle") return "Eagle";
+    if (t === "birdie") return "Birdie";
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : "Birdie";
+  };
+
+  const fmtMoney = (v) =>
+    new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v || 0);
+
+  const fmtDate = (ts) => {
+    const n = Number(ts || 0);
+    if (!n) return "—";
+    const d = new Date(n * 1000);
+    return d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+  };
+
+  return (
+    <div className="cp-content">
+      <div className="cp-card">
+        <div className="cp-card-header">
+          <div>
+            <div className="cp-card-title">Tu programa Mulligans</div>
+            <div className="cp-card-sub">Puntos y nivel se actualizan automáticamente con tus reservas.</div>
+          </div>
+          <div className="cp-pill">{tierLabel(tier)}</div>
+        </div>
+
+        <div className="cp-grid-3" style={{ marginTop: 14 }}>
+          <div className="cp-stat">
+            <div className="cp-stat-k">Balance</div>
+            <div className="cp-stat-v">{points.toLocaleString("es-ES")}</div>
+            <div className="cp-stat-s">Mulligans disponibles</div>
+          </div>
+
+          <div className="cp-stat">
+            <div className="cp-stat-k">Gasto histórico</div>
+            <div className="cp-stat-v">{fmtMoney(spend)}</div>
+            <div className="cp-stat-s">Define tu nivel</div>
+          </div>
+
+          <div className="cp-stat">
+            <div className="cp-stat-k">Última sincronización</div>
+            <div className="cp-stat-v">{fmtDate(m.last_sync)}</div>
+            <div className="cp-stat-s">Cuando se recalculó por última vez</div>
+          </div>
+        </div>
+
+        <div className="cp-grid-4" style={{ marginTop: 14 }}>
+          <div className="cp-mini">
+            <div className="cp-mini-k">Ganados</div>
+            <div className="cp-mini-v">{earned.toLocaleString("es-ES")}</div>
+          </div>
+          <div className="cp-mini">
+            <div className="cp-mini-k">Bonus</div>
+            <div className="cp-mini-v">{bonus.toLocaleString("es-ES")}</div>
+          </div>
+          <div className="cp-mini">
+            <div className="cp-mini-k">Usados</div>
+            <div className="cp-mini-v">{used.toLocaleString("es-ES")}</div>
+          </div>
+          <div className="cp-mini">
+            <div className="cp-mini-k">Balance</div>
+            <div className="cp-mini-v">{points.toLocaleString("es-ES")}</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <Notice variant="info" title="Cómo funciona">
+            Los beneficios se activan con una reserva real. Si un año no viajas, mantienes tu nivel, pero no se “dispara” el beneficio.
+          </Notice>
+        </div>
+      </div>
+
+      <div className="cp-card" style={{ marginTop: 14 }}>
+        <div className="cp-card-title">Histórico</div>
+        <div className="cp-card-sub">Movimientos recientes (ganados, bonus y canjes).</div>
+
+        {ledger.length === 0 ? (
+          <EmptyState title="Aún no hay movimientos" icon="🧾">
+            Cuando se registren pagos o se aplique un bonus, aparecerán aquí.
+          </EmptyState>
+        ) : (
+          <div className="cp-ledger">
+            {ledger.map((it) => {
+              const pts = Number(it.points || 0);
+              const sign = pts >= 0 ? "+" : "";
+              const when = it.ts ? fmtDate(it.ts) : "—";
+              const type = String(it.type || "");
+              const label = type === "bonus" ? "Bonus" : type === "earn" ? "Ganado" : type === "redeem" ? "Canje" : "Movimiento";
+              return (
+                <div key={it.id || `${it.ts}-${Math.random()}`} className="cp-ledger-row">
+                  <div className="cp-ledger-main">
+                    <div className="cp-ledger-title">{label}</div>
+                    <div className="cp-ledger-sub">{it.note || it.source || "—"}</div>
+                  </div>
+                  <div className="cp-ledger-right">
+                    <div className={`cp-ledger-points ${pts >= 0 ? "is-pos" : "is-neg"}`}>{sign}{pts}</div>
+                    <div className="cp-ledger-date">{when}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function App() {
   const [route, setRoute] = useState(readParams());
   const [dashboard, setDashboard] = useState(null);
   const [loadingDash, setLoadingDash] = useState(true);
@@ -908,6 +1035,7 @@ export default function App() {
     if (route.view === "trip") return "Detalle del viaje";
     if (route.view === "inbox") return "Mensajes";
     if (route.view === "dashboard") return "Dashboard";
+    if (route.view === "mulligans") return "Mulligans";
     return "Portal";
   }, [route.view]);
 
@@ -952,6 +1080,8 @@ export default function App() {
           <TripDetailView mock={route.mock} expediente={route.expediente} dashboard={dashboard} onLatestTs={handleLatestTs} onSeen={markMessagesSeen} />
         ) : route.view === "inbox" ? (
           <InboxView mock={route.mock} inbox={inbox} loading={loadingDash} error={inboxErr} onLatestTs={handleLatestTs} onSeen={markMessagesSeen} />
+        ) : route.view === "mulligans" ? (
+          <MulligansView data={dashboard} />
         ) : (
           <div className="cp-content">
             <div className="cp-notice">Vista en construcción.</div>
@@ -961,3 +1091,5 @@ export default function App() {
     </div>
   );
 }
+
+export default App;
