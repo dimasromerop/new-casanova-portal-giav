@@ -133,7 +133,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .cp-topbar-inner {
-  max-width: 1160px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 14px 18px;
   display: flex;
@@ -164,7 +164,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .cp-content {
-  max-width: 1160px;
+  max-width: 1600px;
   width: 100%;
   margin: 0 auto;
   padding: 18px;
@@ -304,19 +304,8 @@ a { color: inherit; text-decoration: none; }
   font-size: 14px;
 }
 
-/* Loading */
-.cp-skeleton {
-  border: 1px solid var(--border);
-  background: linear-gradient(90deg, #f2f3f6, #fafbfc, #f2f3f6);
-  background-size: 200% 100%;
-  animation: shimmer 1.2s infinite;
-  border-radius: var(--radius);
-  height: 110px;
-}
-@keyframes shimmer {
-  0% { background-position: 0% 0; }
-  100% { background-position: -200% 0; }
-}
+/* Loading 
+.cp-skeleton{ background-position: 100% 200% 0; } */
 
 
 /* ===== UX polish ===== */
@@ -344,17 +333,6 @@ a { color: inherit; text-decoration: none; }
 .cp-empty__text{ margin-top:6px; color:var(--muted); max-width:520px; line-height:1.45; }
 .cp-empty__action{ margin-top:14px; }
 
-.cp-skeleton{ display:flex; flex-direction:column; gap:10px; }
-.cp-skeleton__line{
-  height:12px; border-radius:999px;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--text) 10%, var(--surface)),
-    color-mix(in srgb, var(--text) 18%, var(--surface)),
-    color-mix(in srgb, var(--text) 10%, var(--surface))
-  );
-  background-size: 200% 100%;
-  animation: cp-shimmer 1.2s infinite linear;
-}
 @keyframes cp-shimmer{
   0%{ background-position: 0% 0; }
   100%{ background-position: -200% 0; }
@@ -419,58 +397,54 @@ a { color: inherit; text-decoration: none; }
   gap:8px;
 }
 
+/* ===== Skeletons (unified) ===== */
+:root{
+  --skel-1: color-mix(in srgb, var(--text) 4%,  var(--surface));
+  --skel-2: color-mix(in srgb, var(--text) 10%, var(--surface));
+  --skel-3: color-mix(in srgb, var(--text) 4%,  var(--surface));
+}
 
-/* Table skeleton (Trips list) */
+.cp-skeleton{ display:flex; flex-direction:column; gap:10px; }
+
+.cp-skeleton__line{
+  height:12px;
+  border-radius:999px;
+  background: linear-gradient(90deg, var(--skel-1), var(--skel-2), var(--skel-3));
+  background-size: 200% 100%;
+  animation: cp-shimmer 1.2s infinite linear;
+}
+
+.cp-table-wrap{
+  width:100%;
+  max-width:1600px;
+  margin:0 auto;
+  overflow-x:auto;
+}
+
 .cp-table-skel{
+  width:100%;
   display:flex;
   flex-direction:column;
   gap:10px;
 }
+
 .cp-table-skel__row{
+  width:100%;
   display:grid;
   grid-template-columns: 120px 2fr 120px 120px 140px 120px 120px 160px;
   gap:10px;
+ 
 }
+
 .cp-table-skel__row.is-head .cp-table-skel__cell{
   height:10px;
   opacity:.75;
 }
+
 .cp-table-skel__cell{
   height:12px;
   border-radius:999px;
-}
-  .cp-table-skel__cell {
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--text) 6%, var(--surface)),
-    color-mix(in srgb, var(--text) 12%, var(--surface)),
-    color-mix(in srgb, var(--text) 6%, var(--surface))
-  );
+  background: linear-gradient(90deg, var(--skel-1), var(--skel-2), var(--skel-3));
   background-size: 200% 100%;
   animation: cp-shimmer 1.2s infinite linear;
 }
-
-
-/* Table skeleton visibility + sizing */
-.cp-table-skel{ width:100%;}
-.cp-table-skel__row{ width:100%; min-width: 980px; }
-.cp-table-skel__cell{
-  height:12px;
-  border-radius:999px;
-   background: linear-gradient(90deg,
-    color-mix(in srgb, var(--text) 6%, var(--surface)),
-    color-mix(in srgb, var(--text) 12%, var(--surface)),
-    color-mix(in srgb, var(--text) 6%, var(--surface))
-  );
-  background-size: 200% 100%;
-  animation: cp-shimmer 1.2s infinite linear;
-}
-
-
-/* Wrap to make skeleton/table feel identical */
-.cp-table-wrap{
-  width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
-  overflow-x: auto;
-}
-
