@@ -39,6 +39,51 @@ function setParam(key, value) {
   window.dispatchEvent(new Event("popstate"));
 }
 
+/* ===== UX Components (microcopy + empty/loading states) ===== */
+
+function Notice({ variant = "info", title, children, action }) {
+  return (
+    <div className={`cp-notice2 is-${variant}`}>
+      <div className="cp-notice2__body">
+        {title ? <div className="cp-notice2__title">{title}</div> : null}
+        <div className="cp-notice2__text">{children}</div>
+      </div>
+      {action ? <div className="cp-notice2__action">{action}</div> : null}
+    </div>
+  );
+}
+
+function EmptyState({ title, children, icon = "🗂️", action }) {
+  return (
+    <div className="cp-empty">
+      <div className="cp-empty__icon" aria-hidden="true">
+        {icon}
+      </div>
+      <div className="cp-empty__title">{title}</div>
+      {children ? <div className="cp-empty__text">{children}</div> : null}
+      {action ? <div className="cp-empty__action">{action}</div> : null}
+    </div>
+  );
+}
+
+function Skeleton({ lines = 3 }) {
+  return (
+    <div className="cp-skeleton" aria-hidden="true">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div key={i} className="cp-skeleton__line" />
+      ))}
+    </div>
+  );
+}
+
+function DisabledHint({ reason, children }) {
+  return (
+    <span className="cp-disabledhint" title={reason}>
+      {children}
+    </span>
+  );
+}
+
 
 /* ===== Local state (frontend-only) =====
    GIAV is read-only from this portal for now. We track "seen" client-side to avoid
@@ -254,9 +299,9 @@ function TripsList({ mock, onOpen, dashboard }) {
                   <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
                     Ver detalle
                   </button>
-                  <button className="cp-btn" disabled>
+                  <DisabledHint reason="El pago se habilita cuando haya un importe pendiente."><button className="cp-btn" disabled>
                     Pagar
-                  </button>
+                  </button></DisabledHint>
                 </td>
               </tr>
             );
@@ -375,16 +420,16 @@ function MessagesTimeline({ expediente, mock, onLatestTs, onSeen }) {
   }, [expediente, onSeen]);
 
 
-  if (state.loading) return <div className="cp-notice">Cargando mensajes…</div>;
+  if (state.loading) return (<div className="cp-card"><div className="cp-card-title">Cargando mensajes</div><Skeleton lines={6} /></div>);
   if (state.error) {
     return (
       <div className="cp-notice is-warn">
-        No se pueden cargar los datos ahora mismo. Intenta de nuevo en unos minutos.
+        Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.
       </div>
     );
   }
 
-  if (items.length === 0) return <div className="cp-notice">No hay mensajes (o no disponibles ahora).</div>;
+  if (items.length === 0) return <EmptyState title="No hay mensajes disponibles" icon="💬">Si te escribimos, lo verás aquí al momento.</EmptyState>;
 
   return (
     <div className="cp-timeline" style={{ marginTop: 14 }}>
@@ -437,7 +482,7 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
     return (
       <div className="cp-card">
         <div className="cp-card-title">Mensajes</div>
-        <div className="cp-notice">No se pueden cargar los datos ahora mismo. Intenta de nuevo en unos minutos.</div>
+        <Notice variant="error" title="No se pueden cargar los mensajes">Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.</Notice>
       </div>
     );
 
@@ -447,7 +492,7 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
     return (
       <div className="cp-card">
         <div className="cp-card-title">Mensajes</div>
-        <div className="cp-notice">No hay mensajes (o no disponibles ahora).</div>
+        <EmptyState title="No hay mensajes nuevos" icon="✅">Si te escribimos, lo verás aquí al momento.</EmptyState>
       </div>
     );
 
@@ -624,7 +669,7 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
             <div className="cp-card-sub">Estado de pagos del viaje</div>
 
             {!payments ? (
-              <div style={{ marginTop: 10 }} className="cp-meta">No hay información de pagos disponible.</div>
+              <div style={{ marginTop: 10 }} className="cp-meta">Aún no hay pagos asociados a este viaje.</div>
             ) : (
               <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 12 }}>
                 <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
@@ -861,7 +906,7 @@ export default function App() {
         ) : dashErr ? (
           <div className="cp-content">
             <div className="cp-notice is-warn">
-              No se pueden cargar los datos ahora mismo. Intenta de nuevo en unos minutos.
+              Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.
             </div>
           </div>
         ) : route.view === "trips" ? (
