@@ -904,7 +904,7 @@ export default function App() {
     inboxLatestTs > 0 && messagesLastSeenTs >= inboxLatestTs ? 0 : unreadFromServer;
 
   const title = useMemo(() => {
-    if (route.view === "trips") return "Viajes";
+    if ((route.view === "viajes" || route.view === "trips")) return "Viajes";
     if (route.view === "trip") return "Detalle del viaje";
     if (route.view === "inbox") return "Mensajes";
     if (route.view === "dashboard") return "Dashboard";
@@ -922,8 +922,14 @@ export default function App() {
         {loadingDash && !dashboard ? (
           <div className="cp-content">
             <div className="cp-card" style={{ background: "#fff" }}>
-              <div className="cp-card-title">Cargando</div>
-              <Skeleton lines={8} />
+              <div className="cp-card-title">{(route.view === "viajes" || route.view === "trips") ? "Tus viajes" : "Cargando"}</div>
+              {(route.view === "viajes" || route.view === "trips") ? (
+                <div style={{ marginTop: 14 }}>
+                  <TableSkeleton rows={7} cols={8} />
+                </div>
+              ) : (
+                <Skeleton lines={8} />
+              )}
             </div>
           </div>
         ) : dashErr ? (
@@ -932,7 +938,7 @@ export default function App() {
               Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.
             </div>
           </div>
-        ) : route.view === "trips" ? (
+        ) : (route.view === "viajes" || route.view === "trips") ? (
           <TripsList
             mock={route.mock}
             dashboard={dashboard}

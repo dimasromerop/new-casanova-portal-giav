@@ -428,7 +428,7 @@ a { color: inherit; text-decoration: none; }
 }
 .cp-table-skel__row{
   display:grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: 120px 2fr 120px 120px 140px 120px 120px 160px;
   gap:10px;
 }
 .cp-table-skel__row.is-head .cp-table-skel__cell{
