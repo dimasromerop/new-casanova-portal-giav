@@ -155,15 +155,19 @@ add_action('plugins_loaded', function () {
 require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/services/inbox-service.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/messages-controller.php';
 
+  require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/services/payments-service.php';
+
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/dto/trip-dto.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/services/trip-service.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/trip-controller.php';
+  require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/payments-controller.php';
 require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/inbox-controller.php';
 
   add_action('rest_api_init', ['Casanova_Dashboard_Controller', 'register_routes']);
   add_action('rest_api_init', ['Casanova_Messages_Controller', 'register_routes']);
   add_action('rest_api_init', ['Casanova_Trip_Controller', 'register_routes']);
   add_action('rest_api_init', ['Casanova_Inbox_Controller', 'register_routes']);
+  add_action('rest_api_init', ['Casanova_Payments_Controller', 'register_routes']);
 
   // React container shortcode
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-react-app.php';

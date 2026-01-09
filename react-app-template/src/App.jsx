@@ -8,13 +8,32 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 /* ===== Helpers ===== */
-function api(path) {
+function api(path, options = {}) {
   const base = window.CasanovaPortal?.restUrl;
   const nonce = window.CasanovaPortal?.nonce;
-  return fetch(base + path, {
+  const method = options.method ? options.method.toUpperCase() : "GET";
+  const headers = {
+    "X-WP-Nonce": nonce,
+    ...(options.headers || {}),
+  };
+
+  const init = {
+    method,
     credentials: "same-origin",
-    headers: { "X-WP-Nonce": nonce },
-  }).then(async (r) => {
+    headers,
+  };
+
+  if (options.body !== undefined) {
+    if (options.body instanceof FormData) {
+      init.body = options.body;
+    } else {
+      headers["Content-Type"] = headers["Content-Type"] || "application/json";
+      init.body =
+        typeof options.body === "string" ? options.body : JSON.stringify(options.body);
+    }
+  }
+
+  return fetch(base + path, init).then(async (r) => {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw j;
     return j;
@@ -95,15 +114,6 @@ function TableSkeleton({ rows = 6, cols = 7 }) {
     </div>
   );
 }
-
-function DisabledHint({ reason, children }) {
-  return (
-    <span className="cp-disabledhint" title={reason}>
-      {children}
-    </span>
-  );
-}
-
 
 /* ===== Local state (frontend-only) =====
    GIAV is read-only from this portal for now. We track "seen" client-side to avoid
@@ -326,9 +336,13 @@ function TripsList({ mock, onOpen, dashboard }) {
                   <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
                     Ver detalle
                   </button>
-                  <DisabledHint reason="El pago se habilita cuando haya un importe pendiente."><button className="cp-btn" disabled>
+                  <button
+                    className="cp-btn"
+                    style={{ whiteSpace: "nowrap" }}
+                    onClick={() => onOpen(t.id, "payments")}
+                  >
                     Pagar
-                  </button></DisabledHint>
+                  </button>
                 </td>
               </tr>
             );
@@ -390,15 +404,93 @@ function TripHeader({ trip, payments }) {
           </div>
           <button
             className="cp-btn"
-            disabled={!payments?.can_pay || !payments?.pay_url}
             onClick={() => {
-              if (payments?.can_pay && payments?.pay_url) window.location.href = payments.pay_url;
+              setParam("tab", "payments");
             }}
           >
-            Pagar
+            Ver pagos
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PaymentActions({ expediente, payments, mock }) {
+  const [state, setState] = useState({ loading: null, error: null });
+  const actions = payments?.actions ?? {};
+  const deposit = actions.deposit ?? { allowed: false, amount: 0 };
+  const balance = actions.balance ?? { allowed: false, amount: 0 };
+
+  const startIntent = async (type) => {
+    setState({ loading: type, error: null });
+    try {
+      const qs = mock ? "?mock=1" : "";
+      const payload = await api(`/payments/intent${qs}`, {
+        method: "POST",
+        body: {
+          expediente_id: Number(expediente),
+          type,
+        },
+      });
+      if (payload?.ok && payload?.redirect_url) {
+        window.location.href = payload.redirect_url;
+        return;
+      }
+      throw payload;
+    } catch (error) {
+      const message =
+        typeof error === "string"
+          ? error
+          : error?.message || error?.msg || error?.code || "No se pudo iniciar el pago.";
+      setState({ loading: null, error: message });
+    }
+  };
+
+  const hasActions = deposit.allowed || balance.allowed;
+  const currency = payments?.currency || "EUR";
+
+  return (
+    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        {deposit.allowed ? (
+          <button
+            className="cp-btn primary"
+            style={{ whiteSpace: "nowrap" }}
+            disabled={state.loading !== null}
+            onClick={() => startIntent("deposit")}
+          >
+            {state.loading === "deposit"
+              ? "Redirigiendo..."
+              : `Pagar depósito (${euro(deposit.amount, currency)})`}
+          </button>
+        ) : null}
+
+        {balance.allowed ? (
+          <button
+            className="cp-btn primary"
+            style={{ whiteSpace: "nowrap" }}
+            disabled={state.loading !== null}
+            onClick={() => startIntent("balance")}
+          >
+            {state.loading === "balance"
+              ? "Redirigiendo..."
+              : `Pagar pendiente (${euro(balance.amount, currency)})`}
+          </button>
+        ) : null}
+
+        {!hasActions ? (
+          <div className="cp-meta" style={{ alignSelf: "center" }}>
+            Aún no hay pagos disponibles para este viaje.
+          </div>
+        ) : null}
+      </div>
+
+      {state.error ? (
+        <Notice variant="error" title="No se puede iniciar el pago">
+          {state.error}
+        </Notice>
+      ) : null}
     </div>
   );
 }
@@ -698,41 +790,32 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
             {!payments ? (
               <div style={{ marginTop: 10 }} className="cp-meta">Aún no hay pagos asociados a este viaje.</div>
             ) : (
-              <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 12 }}>
-                <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
-                  <div className="cp-meta">Total</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                    {euro(payments.total, payments.currency || "EUR")}
+              <>
+                <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 12 }}>
+                  <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
+                    <div className="cp-meta">Total</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
+                      {euro(payments.total, payments.currency || "EUR")}
+                    </div>
+                  </div>
+
+                  <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
+                    <div className="cp-meta">Pagado</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
+                      {euro(payments.paid, payments.currency || "EUR")}
+                    </div>
+                  </div>
+
+                  <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
+                    <div className="cp-meta">Pendiente</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
+                      {euro(payments.pending, payments.currency || "EUR")}
+                    </div>
                   </div>
                 </div>
 
-                <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
-                  <div className="cp-meta">Pagado</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                    {euro(payments.paid, payments.currency || "EUR")}
-                  </div>
-                </div>
-
-                <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
-                  <div className="cp-meta">Pendiente</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                    {euro(payments.pending, payments.currency || "EUR")}
-                  </div>
-                </div>
-
-                <div style={{ flex: "1 1 100%", display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
-                  <button
-                    className="cp-btn primary"
-                    style={{ whiteSpace: "nowrap" }}
-                    disabled={!payments.can_pay || !payments.pay_url}
-                    onClick={() => {
-                      if (payments.can_pay && payments.pay_url) window.location.href = payments.pay_url;
-                    }}
-                  >
-                    Pagar ahora
-                  </button>
-                </div>
-              </div>
+                <PaymentActions expediente={expediente} payments={payments} mock={mock} />
+              </>
             )}
           </div>
         ) : null}
@@ -1070,10 +1153,10 @@ function App() {
           <TripsList
             mock={route.mock}
             dashboard={dashboard}
-            onOpen={(id) => {
+            onOpen={(id, tab = "summary") => {
               setParam("view", "trip");
               setParam("expediente", String(id));
-              setParam("tab", "summary");
+              setParam("tab", tab);
             }}
           />
         ) : route.view === "trip" && route.expediente ? (

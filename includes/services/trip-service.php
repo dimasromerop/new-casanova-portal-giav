@@ -42,7 +42,7 @@ class Casanova_Trip_Service {
     try {
       $trip = self::build_trip($idCliente, $expediente_id);
       $services = self::build_services($idCliente, $expediente_id);
-      $payments = self::build_payments($idCliente, $expediente_id, $services);
+      $payments = self::build_payments($user_id, $idCliente, $expediente_id, $services);
       $messages_meta = self::build_messages_meta($user_id, $expediente_id);
 
       return [
@@ -193,34 +193,25 @@ class Casanova_Trip_Service {
    * @param array<int,array<string,mixed>> $services
    * @return array<string,mixed>|null
    */
-  private static function build_payments(int $idCliente, int $idExpediente, array $services): ?array {
-    if (!function_exists('casanova_giav_reservas_por_expediente') || !function_exists('casanova_calc_pago_expediente')) {
+  private static function build_payments(int $user_id, int $idCliente, int $idExpediente, array $services): ?array {
+    $ctx = Casanova_Payments_Service::describe_for_user($user_id, $idCliente, $idExpediente);
+    if (is_wp_error($ctx)) {
       return null;
     }
 
-    $reservas = casanova_giav_reservas_por_expediente($idExpediente, $idCliente);
-    if (!is_array($reservas)) return null;
-
-    $p = casanova_calc_pago_expediente($idExpediente, $idCliente, $reservas);
-    if (!is_array($p)) return null;
-
-    $total = (float) ($p['total_objetivo'] ?? 0);
-    $paid  = (float) ($p['pagado_real'] ?? 0);
-    $pending = max(0, $total - $paid);
-
-    $can_pay = $pending > 0.01;
-    $pay_url = null;
-    if ($can_pay && function_exists('casanova_portal_pay_expediente_url')) {
-      $pay_url = casanova_portal_pay_expediente_url($idExpediente);
-    }
+    $actions = is_array($ctx['actions'] ?? null) ? $ctx['actions'] : [];
 
     return [
-      'currency' => 'EUR',
-      'total' => $total,
-      'paid' => $paid,
-      'pending' => $pending,
-      'can_pay' => (bool) $can_pay,
-      'pay_url' => $pay_url,
+      'currency' => $ctx['currency'] ?? 'EUR',
+      'total' => (float) ($ctx['total'] ?? 0),
+      'paid' => (float) ($ctx['paid'] ?? 0),
+      'pending' => (float) ($ctx['pending'] ?? 0),
+      'can_pay' => (bool) ($ctx['can_pay'] ?? false),
+      'pay_url' => $ctx['pay_url'] ?? null,
+      'actions' => [
+        'deposit' => $actions['deposit'] ?? ['allowed' => false, 'amount' => 0],
+        'balance' => $actions['balance'] ?? ['allowed' => false, 'amount' => 0],
+      ],
     ];
   }
 
