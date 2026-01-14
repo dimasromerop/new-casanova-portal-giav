@@ -161,6 +161,28 @@ function casanova_bonos_available_grouped(int $idCliente): array {
   return $out;
 }
 
+function casanova_bonos_for_expediente(int $idCliente, int $idExpediente): array {
+  if ($idCliente <= 0 || $idExpediente <= 0) {
+    return [];
+  }
+
+  $groups = casanova_bonos_available_grouped($idCliente);
+  if (!is_array($groups)) {
+    return [];
+  }
+
+  foreach ($groups as $group) {
+    if (!is_array($group)) continue;
+    $exp = $group['exp'] ?? null;
+    if (!is_object($exp)) continue;
+    $current = (int) ($exp->IdExpediente ?? $exp->Id ?? $exp->IdExpediente ?? 0);
+    if ($current !== $idExpediente) continue;
+    return $group['items'] ?? [];
+  }
+
+  return [];
+}
+
 /**
  * Guarda el primer avistamiento de cada bono por usuario, para badge "Nuevo".
  */

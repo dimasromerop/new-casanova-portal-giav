@@ -37,6 +37,7 @@ class Casanova_Trip_Service {
       $passengers = self::build_passengers($expediente_id);
       $services = [];
       $payments = self::build_payments($user_id, $idCliente, $expediente_id, $services);
+      $bonuses = self::build_bonos($idCliente, $expediente_id);
       $messages_meta = self::build_messages_meta($user_id, $expediente_id);
 
       return [
@@ -48,7 +49,8 @@ class Casanova_Trip_Service {
         'passengers' => $passengers,
         'payments' => $payments,
         'invoices' => [],
-        'vouchers' => [],
+        'vouchers' => $bonuses['items'] ?? [],
+        'bonuses' => $bonuses,
         'messages_meta' => $messages_meta,
       ];
 
@@ -227,11 +229,11 @@ class Casanova_Trip_Service {
 
     $root = reset($pqs);
     $root_id = (int) ($root->Id ?? 0);
-    $pkg = self::normalize_service($root, $idExpediente, true, false, true);
+    $kids = $children[$root_id] ?? [];
+    $allow_voucher_root = empty($kids) && $expediente_pagado;
+    $pkg = self::normalize_service($root, $idExpediente, true, $allow_voucher_root, true);
     $pkg['type'] = 'PQ';
     $pkg['services'] = [];
-
-    $kids = $children[$root_id] ?? [];
     foreach ($kids as $kid) {
       $pkg['services'][] = self::normalize_service($kid, $idExpediente, true, $expediente_pagado, false);
     }
@@ -396,18 +398,80 @@ class Casanova_Trip_Service {
     }
 
     $actions = is_array($ctx['actions'] ?? null) ? $ctx['actions'] : [];
+    $history = is_array($ctx['history'] ?? null) ? $ctx['history'] : [];
+    $calc = is_array($ctx['calc'] ?? null) ? $ctx['calc'] : [];
+    $is_paid = !empty($ctx['expediente_pagado']) || !empty($calc['expediente_pagado']);
+    $mulligans_used = (int)($ctx['mulligans_used'] ?? 0);
 
     return [
       'currency' => $ctx['currency'] ?? 'EUR',
       'total' => (float) ($ctx['total'] ?? 0),
       'paid' => (float) ($ctx['paid'] ?? 0),
       'pending' => (float) ($ctx['pending'] ?? 0),
+      'history' => $history,
+      'is_paid' => $is_paid,
+      'mulligans_used' => $mulligans_used,
       'can_pay' => (bool) ($ctx['can_pay'] ?? false),
       'pay_url' => $ctx['pay_url'] ?? null,
       'actions' => [
         'deposit' => $actions['deposit'] ?? ['allowed' => false, 'amount' => 0],
         'balance' => $actions['balance'] ?? ['allowed' => false, 'amount' => 0],
       ],
+    ];
+  }
+
+  private static function build_bonos(int $idCliente, int $idExpediente): array {
+    if ($idCliente <= 0 || $idExpediente <= 0 || !function_exists('casanova_bonos_for_expediente')) {
+      return ['available' => false, 'items' => []];
+    }
+
+    $raw = casanova_bonos_for_expediente($idCliente, $idExpediente);
+    if (!is_array($raw) || empty($raw)) {
+      return ['available' => false, 'items' => []];
+    }
+
+    $items = [];
+    foreach ($raw as $row) {
+      if (!is_array($row)) continue;
+      $label = trim((string) ($row['label'] ?? ''));
+      if ($label === '') {
+        $label = __('Bono', 'casanova-portal');
+      }
+      $range = '';
+      if (function_exists('casanova_fmt_date_range')) {
+        $range = casanova_fmt_date_range($row['from'] ?? null, $row['to'] ?? null);
+      }
+      if ($range === '') {
+        $start = trim((string) ($row['from'] ?? ''));
+        $end = trim((string) ($row['to'] ?? ''));
+        $range = trim($start . ' - ' . $end, ' -');
+      }
+
+      $from_ts = 0;
+      if (!empty($row['from'])) {
+        $from_ts = strtotime((string) $row['from']) ?: 0;
+      }
+
+      $items[] = [
+        'id' => 'exp:' . $idExpediente . '|res:' . (int) ($row['id_reserva'] ?? 0),
+        'label' => $label,
+        'date_range' => $range,
+        'from' => $row['from'] ?? '',
+        'to' => $row['to'] ?? '',
+        'from_ts' => $from_ts,
+        'view_url' => (string) ($row['view_url'] ?? ''),
+        'pdf_url' => (string) ($row['pdf_url'] ?? ''),
+        'downloadable' => !empty($row['view_url'] ?? '') || !empty($row['pdf_url'] ?? ''),
+      ];
+    }
+
+    usort($items, function($a, $b) {
+      return ($a['from_ts'] ?? 0) <=> ($b['from_ts'] ?? 0);
+    });
+
+    return [
+      'available' => !empty($items),
+      'items' => $items,
     ];
   }
 

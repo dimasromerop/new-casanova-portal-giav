@@ -310,6 +310,54 @@ function casanova_calc_pago_expediente(int $idExpediente, int $idCliente, array 
 }
 
 /**
+ * Devuelve los Mulligans usados (custom data 2179) para el expediente.
+ */
+function casanova_mulligans_used_for_expediente(int $idExpediente, int $idCliente = 0): int {
+  if ($idExpediente <= 0 || !function_exists('casanova_giav_expediente_get')) {
+    return 0;
+  }
+
+  $exp_obj = $idCliente > 0
+    ? casanova_giav_expediente_get($idExpediente, $idCliente)
+    : casanova_giav_expediente_get($idExpediente);
+
+  if (is_wp_error($exp_obj) || !is_object($exp_obj)) {
+    return 0;
+  }
+
+  $value = null;
+  if (function_exists('casanova_mulligans_giav_custom_value')) {
+    $value = casanova_mulligans_giav_custom_value($exp_obj, 2179);
+  } else {
+    $cdv = $exp_obj->customDataValues ?? ($exp_obj->CustomDataValues ?? null);
+    $items = null;
+    if (is_object($cdv) && isset($cdv->CustomDataItem)) {
+      $items = $cdv->CustomDataItem;
+    } elseif (is_array($cdv)) {
+      $items = $cdv;
+    }
+    if ($items && !is_array($items)) {
+      $items = [$items];
+    }
+    if (is_array($items)) {
+      foreach ($items as $it) {
+        if (!is_object($it)) continue;
+        $k = $it->Key ?? ($it->key ?? null);
+        if ((int)$k !== 2179) continue;
+        $value = (string)($it->Value ?? ($it->value ?? ''));
+        break;
+      }
+    }
+  }
+
+  if ($value === null || $value === '') {
+    return 0;
+  }
+  $value = str_replace(',', '.', (string)$value);
+  return (int) round((float) $value);
+}
+
+/**
  * ============================
  * Contexto portal (usuario + expediente)
  * ============================
@@ -357,38 +405,9 @@ function casanova_portal_expediente_context(): array|WP_Error {
   }
 
   
-  // Mulligans usados (campo custom GIAV 2179) por expediente, para mostrar en resumen
-  $mulligans_used = 0;
-  if (function_exists('casanova_giav_expediente_get')) {
-    $exp_obj = casanova_giav_expediente_get($idExpediente);
-    if (!is_wp_error($exp_obj) && is_object($exp_obj)) {
-      $v = null;
-      if (function_exists('casanova_mulligans_giav_custom_value')) {
-        $v = casanova_mulligans_giav_custom_value($exp_obj, 2179);
-      } else {
-        // fallback local (sin depender del módulo loyalty)
-        $cdv = $exp_obj->customDataValues ?? ($exp_obj->CustomDataValues ?? null);
-        $items = null;
-        if (is_object($cdv) && isset($cdv->CustomDataItem)) $items = $cdv->CustomDataItem;
-        elseif (is_array($cdv)) $items = $cdv;
-        if ($items && !is_array($items)) $items = [$items];
-        if (is_array($items)) {
-          foreach ($items as $it) {
-            if (!is_object($it)) continue;
-            $k = $it->Key ?? ($it->key ?? null);
-            if ((int)$k !== 2179) continue;
-            $v = (string)($it->Value ?? ($it->value ?? ''));
-            break;
-          }
-        }
-      }
-      if ($v !== null && $v !== '') {
-        $mulligans_used = (int) round((float) str_replace(',', '.', (string)$v));
-      }
-    }
-  }
+  $mulligans_used = casanova_mulligans_used_for_expediente($idExpediente, $idCliente);
 
-return [
+  return [
     'user_id' => $user_id,
     'idCliente' => $idCliente,
     'idExpediente' => $idExpediente,

@@ -52,6 +52,7 @@ class Casanova_Payments_Service {
     $total = (float) ($calc['total_objetivo'] ?? 0);
     $paid = (float) ($calc['pagado'] ?? 0);
     $pending = max(0.0, (float) ($calc['pendiente_real'] ?? 0));
+    $is_paid = !empty($calc['expediente_pagado']);
 
     $deposit_allowed = false;
     $deposit_amount = 0.0;
@@ -88,6 +89,9 @@ class Casanova_Payments_Service {
       'currency' => 'EUR',
       'can_pay' => $pending > 0.01,
       'pay_url' => $pay_url,
+      'history' => self::fetch_cobros_history($idExpediente, $idCliente),
+      'expediente_pagado' => $is_paid,
+      'mulligans_used' => casanova_mulligans_used_for_expediente($idExpediente, $idCliente),
       'actions' => [
         'deposit' => [
           'allowed' => (bool) $deposit_effective,
@@ -99,6 +103,68 @@ class Casanova_Payments_Service {
         ],
       ],
     ];
+  }
+
+  private static function fetch_cobros_history(int $idExpediente, int $idCliente): array {
+    if ($idExpediente <= 0 || $idCliente <= 0 || !function_exists('casanova_giav_cobros_por_expediente_all')) {
+      return [];
+    }
+
+    $items = casanova_giav_cobros_por_expediente_all($idExpediente, $idCliente);
+    if (is_wp_error($items) || !is_array($items)) {
+      return [];
+    }
+
+    $rows = [];
+    foreach ($items as $item) {
+      if (!is_object($item)) continue;
+
+      $date_raw = trim((string) ($item->FechaCobro ?? ''));
+      $ts = $date_raw ? strtotime($date_raw) : 0;
+      $date = $ts ? date_i18n('Y-m-d', $ts) : '';
+
+      $importe = (float) ($item->Importe ?? 0);
+      $tipo = trim((string) ($item->TipoOperacion ?? ''));
+      $tipo_up = strtoupper($tipo);
+      $is_refund = (strpos($tipo_up, 'REEM') !== false || strpos($tipo_up, 'DEV') !== false);
+
+      if ($tipo === '') {
+        if ($importe >= 0) {
+          $tipo = __('Cobro', 'casanova-portal');
+        } else {
+          $tipo = __('Reembolso', 'casanova-portal');
+        }
+      }
+
+      $concept = trim((string) ($item->Concepto ?? ''));
+      if ($concept === '') {
+        $concept = trim((string) ($item->Documento ?? ''));
+      }
+      if ($concept === '') {
+        $concept = __('Pago', 'casanova-portal');
+      }
+
+      $payer = trim((string) ($item->Pagador ?? ''));
+      $doc = trim((string) ($item->Documento ?? ''));
+
+      $rows[] = [
+        'id' => (string) ($item->Id ?? $item->IdCobro ?? $item->IdCobroSolicitud ?? uniqid('cobro-', true)),
+        'date' => $date,
+        'timestamp' => $ts,
+        'type' => $tipo,
+        'is_refund' => $is_refund,
+        'concept' => $concept,
+        'payer' => $payer,
+        'document' => $doc,
+        'amount' => abs($importe),
+      ];
+    }
+
+    usort($rows, function($a, $b) {
+      return ($a['timestamp'] ?? 0) <=> ($b['timestamp'] ?? 0);
+    });
+
+    return $rows;
   }
 
 }

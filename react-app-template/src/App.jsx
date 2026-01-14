@@ -813,7 +813,44 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const packageServices = Array.isArray(pkg?.services) ? pkg.services : [];
   const hasServices = Boolean(pkg) || extras.length > 0;
   const invoices = Array.isArray(detail?.invoices) ? detail.invoices : [];
-  const vouchers = Array.isArray(detail?.vouchers) ? detail.vouchers : [];
+  const bonuses = detail?.bonuses ?? { available: false, items: [] };
+  const voucherItems = Array.isArray(bonuses.items) ? bonuses.items : [];
+  const chargeHistory = payments?.history ?? [];
+  const isPaid = Boolean(payments?.is_paid);
+  const currency = payments?.currency || "EUR";
+  const mulligansUsed = payments?.mulligans_used ?? 0;
+
+  const bonusDisabledReason = (type) => {
+    if (!isPaid) return "El viaje debe estar pagado para descargar los bonos.";
+    return type === "view"
+      ? "No hay una vista previa disponible para este bono."
+      : "No hay un PDF disponible para este bono.";
+  };
+
+  const renderBonusButton = (label, url, type) => {
+    if (url) {
+      return (
+        <a
+          className="cp-btn cp-btn--ghost cp-bonus-btn"
+          href={url}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          {label}
+        </a>
+      );
+    }
+    return (
+      <button
+        type="button"
+        className="cp-btn cp-btn--ghost cp-bonus-btn"
+        disabled
+        title={bonusDisabledReason(type)}
+      >
+        {label}
+      </button>
+    );
+  };
 
   const title = trip?.title || `Expediente #${expediente}`;
   const tab = readParams().tab;
@@ -892,26 +929,73 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
                   <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
                     <div className="cp-meta">Total</div>
                     <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                      {euro(payments.total, payments.currency || "EUR")}
+                      {euro(payments.total, currency)}
                     </div>
                   </div>
 
                   <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
                     <div className="cp-meta">Pagado</div>
                     <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                      {euro(payments.paid, payments.currency || "EUR")}
+                      {euro(payments.paid, currency)}
                     </div>
                   </div>
 
                   <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
                     <div className="cp-meta">Pendiente</div>
                     <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                      {euro(payments.pending, payments.currency || "EUR")}
+                      {euro(payments.pending, currency)}
+                    </div>
+                  </div>
+                  <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
+                    <div className="cp-meta">Mulligans usados</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
+                      {mulligansUsed.toLocaleString("es-ES")}
                     </div>
                   </div>
                 </div>
 
                 <PaymentActions expediente={expediente} payments={payments} mock={mock} />
+                {isPaid ? (
+                  <div style={{ marginTop: 12 }}>
+                    <div className="cp-pill cp-pill--success">Pagado</div>
+                  </div>
+                ) : null}
+
+                {chargeHistory.length > 0 ? (
+                  <div className="cp-payments-history">
+                    <div className="cp-payments-history__title">Histórico de cobros</div>
+                    <div className="cp-table-wrap">
+                      <table className="cp-payments-history__table">
+                        <thead>
+                          <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th>Pagador</th>
+                            <th className="is-right">Importe</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {chargeHistory.map((row) => (
+                            <tr key={row.id}>
+                              <td>{formatDateES(row.date)}</td>
+                              <td>{row.type}</td>
+                              <td>{row.concept}</td>
+                              <td>{row.payer || row.document || "—"}</td>
+                              <td className="is-right">
+                                {euro(row.is_refund ? -row.amount : row.amount, currency)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 14 }} className="cp-meta">
+                    Aún no hay cobros registrados en este viaje.
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -957,39 +1041,30 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
           <div className="cp-card">
             <div className="cp-card-title">Bonos</div>
             <div className="cp-card-sub">Vouchers y documentación</div>
-            {vouchers.length === 0 ? (
-              <div style={{ marginTop: 10 }} className="cp-meta">No hay bonos disponibles.</div>
+            {bonuses.available && voucherItems.length > 0 ? (
+              <Notice variant="info" title="Bonos disponibles">
+                En cada reserva podrás ver el bono y descargar el PDF.
+              </Notice>
+            ) : null}
+
+            {voucherItems.length === 0 ? (
+              <div style={{ marginTop: 10 }} className="cp-meta">
+                {isPaid
+                  ? "No hay bonos disponibles para este viaje."
+                  : "Los bonos aparecerán cuando el viaje esté pagado."}
+              </div>
             ) : (
-              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-                {vouchers.map((v) => (
-                  <div
-                    key={v.id}
-                    style={{
-                      border: "1px solid rgba(0,0,0,0.08)",
-                      borderRadius: 12,
-                      padding: 12,
-                      background: "#fff",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      alignItems: "center",
-                    }}
-                  >
+              <div className="cp-bonus-list">
+                {voucherItems.map((item) => (
+                  <div key={item.id} className="cp-bonus-card">
                     <div>
-                      <div style={{ fontWeight: 700 }}>{v.title || "Bono"}</div>
-                      <div style={{ fontSize: 12, opacity: 0.75 }}>
-                        {v.issued ? "Emitido" : "No emitido"}
-                      </div>
+                      <div className="cp-bonus-title">{item.label}</div>
+                      <div className="cp-bonus-meta">{item.date_range || "Sin fechas"}</div>
                     </div>
-                    <button
-                      className="cp-btn"
-                      disabled={!v.issued || !v.download_url}
-                      onClick={() => {
-                        if (v.issued && v.download_url) window.location.href = v.download_url;
-                      }}
-                    >
-                      Descargar
-                    </button>
+                    <div className="cp-bonus-actions">
+                      {renderBonusButton("Ver bono", item.view_url, "view")}
+                      {renderBonusButton("PDF", item.pdf_url, "pdf")}
+                    </div>
                   </div>
                 ))}
               </div>

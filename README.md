@@ -61,3 +61,4 @@
 ## Cómo probar
 - **GIAV real:** `GET /wp-json/casanova/v1/trip?id=250056` con un usuario logueado que tenga `casanova_idcliente`. La tarjeta Resumen debe mostrar el PQ con “Servicios incluidos” y los botones `Detalle`, `Ver bono` y `PDF`.
 - **Modo mock:** usa `?mock=1` para forzar datos sintéticos (`id=250056` para probar PQ+extras, `id=250057` para servicios sueltos). El mock replica la jerarquía y los enlaces de bono/PDF para validar el nuevo panel de detalle.
+> El paquete PQ solo muestra `Ver bono` y `PDF` cuando no tiene servicios incluidos (es decir, cuando el propio PQ es el servicio principal).
