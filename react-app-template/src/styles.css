@@ -203,6 +203,142 @@ a { color: inherit; text-decoration: none; }
 }
 
 @media (max-width: 1100px) {
+  .cp-summary-services {
+    gap: 16px;
+  }
+}
+
+.cp-summary-services {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cp-service-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cp-service-section__heading {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.cp-service-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-service {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-service--child {
+  margin-left: 18px;
+}
+
+.cp-service__summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.cp-service__main {
+  min-width: 0;
+}
+
+.cp-service__code {
+  font-weight: 700;
+}
+
+.cp-service__title {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.cp-service__dates {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cp-service__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cp-service__price {
+  font-weight: 700;
+}
+
+.cp-service__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cp-service__detail {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--bg));
+  border-radius: 12px;
+}
+
+.cp-service__detail strong {
+  font-weight: 600;
+}
+
+.cp-service__kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.cp-service__divider {
+  height: 1px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 6px 0;
+}
+
+.cp-service__bonus {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.cp-btn--ghost {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.15);
+  color: var(--text);
+}
+
+.cp-btn--ghost:hover {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.cp-btn--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+@media (max-width: 1100px) {
   .cp-app { grid-template-columns: 1fr; }
   .cp-sidebar { position: relative; height: auto; }
   .cp-card { grid-column: span 12; }

@@ -655,6 +655,123 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
   );
 }
 
+function ServiceItem({ service, indent = false }) {
+  const [open, setOpen] = useState(false);
+  const detail = service.detail || {};
+  const bonusText = typeof detail.bonus_text === "string" ? detail.bonus_text.trim() : "";
+  const price = typeof service.price === "number" ? service.price : null;
+  const viewUrl = service.voucher_urls?.view || "";
+  const pdfUrl = service.voucher_urls?.pdf || "";
+  const canVoucher = Boolean(service.actions?.voucher);
+  const canPdf = Boolean(service.actions?.pdf);
+  const tagLabel = (service.type || "servicio").toUpperCase();
+
+  const toggleDetail = () => {
+    if (!service.actions?.detail) return;
+    setOpen((prev) => !prev);
+  };
+
+  return (
+    <div className={`cp-service${indent ? " cp-service--child" : ""}`}>
+      <div className="cp-service__summary">
+        <div className="cp-service__main">
+          <div className="cp-service__code">
+            {detail.code || service.id || "Servicio"}
+          </div>
+          <div className="cp-service__title">{service.title || "Servicio"}</div>
+          <div className="cp-service__dates">
+            {service.date_range || "Fechas por confirmar"}
+          </div>
+        </div>
+        <div className="cp-service__right">
+          {price != null ? (
+            <div className="cp-service__price">{euro(price)}</div>
+          ) : null}
+          <div className="cp-service__actions">
+            <span className="cp-chip">{tagLabel}</span>
+            <button
+              type="button"
+              className="cp-btn cp-btn--ghost"
+              onClick={toggleDetail}
+              disabled={!service.actions?.detail}
+              aria-expanded={open}
+            >
+              Detalle
+            </button>
+            {canVoucher && viewUrl ? (
+              <a className="cp-btn cp-btn--ghost" href={viewUrl} target="_blank" rel="noreferrer">
+                Ver bono
+              </a>
+            ) : (
+              <span className="cp-btn cp-btn--ghost cp-btn--disabled">Bono</span>
+            )}
+            {canPdf && pdfUrl ? (
+              <a className="cp-btn cp-btn--ghost" href={pdfUrl} target="_blank" rel="noreferrer">
+                PDF
+              </a>
+            ) : (
+              <span className="cp-btn cp-btn--ghost cp-btn--disabled">PDF</span>
+            )}
+          </div>
+        </div>
+      </div>
+      {open ? (
+        <div className="cp-service__detail">
+          <div className="cp-service__kv">
+            {detail.code || service.id ? (
+              <div>
+                <strong>Código:</strong> {detail.code || service.id}
+              </div>
+            ) : null}
+            {detail.type ? (
+              <div>
+                <strong>Tipo:</strong> {detail.type}
+              </div>
+            ) : null}
+            <div>
+              <strong>Fechas:</strong> {service.date_range || "—"}
+            </div>
+            {detail.locator ? (
+              <div>
+                <strong>Localizador:</strong> {detail.locator}
+              </div>
+            ) : null}
+            {price != null ? (
+              <div>
+                <strong>PVP:</strong> {euro(price)}
+              </div>
+            ) : null}
+          </div>
+          {bonusText ? (
+            <>
+              <div className="cp-service__divider" />
+              <div>
+                <strong>Texto adicional (bono):</strong>
+                <p className="cp-service__bonus">{bonusText}</p>
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ServiceList({ services, indent = false }) {
+  if (!Array.isArray(services) || services.length === 0) return null;
+  return (
+    <div className="cp-service-list">
+      {services.map((service, index) => (
+        <ServiceItem
+          key={service.id || `${service.type || "srv"}-${index}`}
+          service={service}
+          indent={indent}
+        />
+      ))}
+    </div>
+  );
+}
+
 function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const trips = Array.isArray(dashboard?.trips) ? dashboard.trips : [];
   const fallbackTrip = trips.find((t) => String(t.id) === String(expediente)) || { id: expediente };
@@ -693,6 +810,8 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const payments = detail?.payments || null;
   const pkg = detail?.package || null;
   const extras = Array.isArray(detail?.extras) ? detail.extras : [];
+  const packageServices = Array.isArray(pkg?.services) ? pkg.services : [];
+  const hasServices = Boolean(pkg) || extras.length > 0;
   const invoices = Array.isArray(detail?.invoices) ? detail.invoices : [];
   const vouchers = Array.isArray(detail?.vouchers) ? detail.vouchers : [];
 
@@ -731,80 +850,28 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
             <div className="cp-card-title">Resumen</div>
             <div className="cp-card-sub">Servicios y planificación del viaje</div>
 
-            {!pkg && extras.length === 0 ? (
+            {!hasServices ? (
               <div style={{ marginTop: 10 }} className="cp-meta">
                 No hay servicios disponibles ahora mismo.
               </div>
             ) : (
-              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="cp-summary-services">
                 {pkg ? (
-                  <div className="cp-card" style={{ background: "#fff" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>{pkg.title || "Paquete"}</div>
-                        <div className="cp-meta">{pkg.date_range || "Fechas por confirmar"}</div>
+                  <div className="cp-service-section">
+                    <div className="cp-service-section__heading">Paquete</div>
+                    <ServiceItem service={pkg} />
+                    {packageServices.length > 0 ? (
+                      <div className="cp-service-section">
+                        <div className="cp-service-section__heading">Servicios incluidos</div>
+                        <ServiceList services={packageServices} indent />
                       </div>
-                      <div className="cp-chip">PQ</div>
-                    </div>
-                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                      {(Array.isArray(pkg.services) ? pkg.services : []).map((s) => (
-                        <div
-                          key={s.id || `${s.type}-${s.title}`}
-                          style={{
-                            border: "1px solid rgba(0,0,0,0.08)",
-                            borderRadius: 12,
-                            padding: "10px 12px",
-                            background: "#fff",
-                            marginLeft: 18,
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                            <div style={{ fontWeight: 600 }}>{s.title || "Servicio"}</div>
-                            <div className="cp-chip">{(s.type || "servicio").toUpperCase()}</div>
-                          </div>
-                          <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
-                            {s.date_range || "Fechas por confirmar"}
-                          </div>
-                          <div style={{ marginTop: 8 }}>
-                            <button className="cp-btn" disabled={!s.actions?.detail}>
-                              Detalle
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    ) : null}
                   </div>
                 ) : null}
-
                 {extras.length > 0 ? (
-                  <div className="cp-card" style={{ background: "#fff" }}>
-                    <div className="cp-card-title" style={{ marginBottom: 8 }}>Extras</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {extras.map((s) => (
-                        <div
-                          key={s.id || `${s.type}-${s.title}`}
-                          style={{
-                            border: "1px solid rgba(0,0,0,0.08)",
-                            borderRadius: 12,
-                            padding: 12,
-                            background: "#fff",
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                            <div style={{ fontWeight: 700 }}>{s.title || "Servicio"}</div>
-                            <div className="cp-chip">{(s.type || "servicio").toUpperCase()}</div>
-                          </div>
-                          <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
-                            {s.date_range || "Fechas por confirmar"}
-                          </div>
-                          <div style={{ marginTop: 8 }}>
-                            <button className="cp-btn" disabled={!s.actions?.detail}>
-                              Detalle
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="cp-service-section">
+                    <div className="cp-service-section__heading">{pkg ? "Extras" : "Servicios"}</div>
+                    <ServiceList services={extras} />
                   </div>
                 ) : null}
               </div>

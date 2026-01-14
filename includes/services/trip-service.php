@@ -228,7 +228,6 @@ class Casanova_Trip_Service {
     $root = reset($pqs);
     $root_id = (int) ($root->Id ?? 0);
     $pkg = self::normalize_service($root, $idExpediente, true, false, true);
-    unset($pkg['included'], $pkg['actions']);
     $pkg['type'] = 'PQ';
     $pkg['services'] = [];
 
@@ -251,6 +250,7 @@ class Casanova_Trip_Service {
     $tipo = strtoupper((string) ($m['tipo'] ?? ($r->TipoReserva ?? '')));
     $code = (string) ($m['codigo'] ?? ($r->Codigo ?? ($r->Id ?? '')));
     $title = (string) ($m['descripcion'] ?? ($r->Descripcion ?? 'Servicio'));
+    $rid = (int) ($r->Id ?? 0);
     $price = null;
 
     if ($show_price && isset($r->Venta) && $r->Venta !== '') {
@@ -260,15 +260,25 @@ class Casanova_Trip_Service {
     $dates = function_exists('casanova_fmt_date_range') ? casanova_fmt_date_range($r->FechaDesde ?? null, $r->FechaHasta ?? null) : '';
 
     $actions = self::build_actions($allow_voucher);
+    $voucher_urls = $allow_voucher ? self::voucher_urls($idExpediente, $rid) : ['view' => '', 'pdf' => ''];
 
     return [
-      'id' => $code ?: ('srv-' . (int) ($r->Id ?? 0)),
+      'id' => $code ?: ('srv-' . $rid),
+      'code' => $code,
       'type' => $tipo !== '' ? $tipo : 'OT',
       'title' => $title,
       'date_range' => $dates,
       'price' => $price,
       'included' => $included,
       'actions' => $actions,
+      'voucher_urls' => $voucher_urls,
+      'detail' => [
+        'code' => $code,
+        'type' => (string) ($r->TipoReserva ?? ''),
+        'dates' => $dates,
+        'locator' => (string) ($r->Localizador ?? ''),
+        'bonus_text' => trim((string) ($r->TextoBono ?? '')),
+      ],
     ];
   }
 
@@ -280,6 +290,36 @@ class Casanova_Trip_Service {
       'detail' => true,
       'voucher' => $allow_voucher,
       'pdf' => $allow_voucher,
+    ];
+  }
+
+  private static function voucher_urls(int $idExpediente, int $idReserva): array {
+    if ($idReserva <= 0) {
+      return ['view' => '', 'pdf' => ''];
+    }
+
+    if (function_exists('casanova_portal_voucher_url')) {
+      return [
+        'view' => casanova_portal_voucher_url($idExpediente, $idReserva, 'view'),
+        'pdf' => casanova_portal_voucher_url($idExpediente, $idReserva, 'pdf'),
+      ];
+    }
+
+    $nonce = wp_create_nonce('casanova_voucher_' . $idExpediente . '_' . $idReserva);
+    $base = admin_url('admin-post.php');
+    return [
+      'view' => add_query_arg([
+        'action' => 'casanova_voucher',
+        'expediente' => $idExpediente,
+        'reserva' => $idReserva,
+        '_wpnonce' => $nonce,
+      ], $base),
+      'pdf' => add_query_arg([
+        'action' => 'casanova_voucher_pdf',
+        'expediente' => $idExpediente,
+        'reserva' => $idReserva,
+        '_wpnonce' => $nonce,
+      ], $base),
     ];
   }
 
