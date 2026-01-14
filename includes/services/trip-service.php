@@ -13,7 +13,7 @@ class Casanova_Trip_Service {
   /**
    * @return array<string,mixed>
    */
-  public static function get_trip_for_user(int $user_id, int $expediente_id, WP_REST_Request $request): array {
+  public static function get_trip_for_user(int $user_id, int $expediente_id, WP_REST_Request $request): array|WP_Error {
 
     $mock = (int) $request->get_param('mock') === 1;
     if ($mock && current_user_can('manage_options')) {
@@ -26,22 +26,16 @@ class Casanova_Trip_Service {
     }
 
     // Ownership: el expediente debe pertenecer al cliente.
-    if (!self::client_owns_expediente($idCliente, $expediente_id)) {
-      return [
-        'status' => 'forbidden',
-        'giav'   => ['ok' => true, 'source' => 'live', 'error' => null],
-        'trip'   => null,
-        'services' => [],
-        'payments' => null,
-        'invoices' => [],
-        'vouchers' => [],
-        'messages_meta' => ['unread_count' => 0, 'last_message_at' => null],
-      ];
+    if (!self::client_owns_expediente($idCliente, $expediente_id, $user_id)) {
+      return new WP_Error('rest_forbidden', __('No autorizado', 'casanova-portal'), ['status' => 403]);
     }
 
     try {
       $trip = self::build_trip($idCliente, $expediente_id);
-      $services = self::build_services($idCliente, $expediente_id);
+      $reservas = self::build_reservas($idCliente, $expediente_id);
+      $structure = self::build_package_structure($expediente_id, $reservas);
+      $passengers = self::build_passengers($expediente_id);
+      $services = [];
       $payments = self::build_payments($user_id, $idCliente, $expediente_id, $services);
       $messages_meta = self::build_messages_meta($user_id, $expediente_id);
 
@@ -49,7 +43,9 @@ class Casanova_Trip_Service {
         'status' => 'ok',
         'giav'   => ['ok' => true, 'source' => 'live', 'error' => null],
         'trip'   => $trip,
-        'services' => $services,
+        'package' => $structure['package'],
+        'extras' => $structure['extras'],
+        'passengers' => $passengers,
         'payments' => $payments,
         'invoices' => [],
         'vouchers' => [],
@@ -61,7 +57,9 @@ class Casanova_Trip_Service {
         'status' => 'degraded',
         'giav'   => ['ok' => false, 'source' => 'live', 'error' => $e->getMessage()],
         'trip'   => null,
-        'services' => [],
+        'package' => null,
+        'extras' => [],
+        'passengers' => [],
         'payments' => null,
         'invoices' => [],
         'vouchers' => [],
@@ -78,7 +76,9 @@ class Casanova_Trip_Service {
       'status' => 'ok',
       'giav'   => ['ok' => true, 'source' => 'live', 'error' => null],
       'trip'   => null,
-      'services' => [],
+      'package' => null,
+      'extras' => [],
+      'passengers' => [],
       'payments' => null,
       'invoices' => [],
       'vouchers' => [],
@@ -86,7 +86,10 @@ class Casanova_Trip_Service {
     ];
   }
 
-  private static function client_owns_expediente(int $idCliente, int $idExpediente): bool {
+  private static function client_owns_expediente(int $idCliente, int $idExpediente, int $user_id): bool {
+    if (function_exists('casanova_user_can_access_expediente')) {
+      return casanova_user_can_access_expediente($user_id, $idExpediente);
+    }
     if (!function_exists('casanova_giav_expedientes_por_cliente')) return true; // no bloqueamos si falta dependencia
 
     $exps = casanova_giav_expedientes_por_cliente($idCliente);
@@ -113,6 +116,7 @@ class Casanova_Trip_Service {
         'status' => '',
         'date_start' => null,
         'date_end' => null,
+        'date_range' => '',
         'pax' => null,
       ];
     }
@@ -136,6 +140,8 @@ class Casanova_Trip_Service {
     if (isset($e->NumPax)) $pax = (int) $e->NumPax;
     if (!$pax && isset($e->Pax)) $pax = (int) $e->Pax;
 
+    $date_range = function_exists('casanova_fmt_date_range') ? casanova_fmt_date_range($ini, $fin) : '';
+
     return [
       'id' => $idExpediente,
       'code' => $code,
@@ -143,6 +149,7 @@ class Casanova_Trip_Service {
       'status' => $status,
       'date_start' => $date_start,
       'date_end' => $date_end,
+      'date_range' => $date_range,
       'pax' => $pax,
     ];
   }
@@ -150,39 +157,188 @@ class Casanova_Trip_Service {
   /**
    * @return array<int,array<string,mixed>>
    */
-  private static function build_services(int $idCliente, int $idExpediente): array {
+  private static function build_reservas(int $idCliente, int $idExpediente): array {
     if (!function_exists('casanova_giav_reservas_por_expediente')) return [];
 
     $reservas = casanova_giav_reservas_por_expediente($idExpediente, $idCliente);
     if (!is_array($reservas)) return [];
 
-    $out = [];
+    return $reservas;
+  }
+
+  /**
+   * @param array<int,mixed> $reservas
+   * @return array{package: array<string,mixed>|null, extras: array<int,array<string,mixed>>}
+   */
+  private static function build_package_structure(int $idExpediente, array $reservas): array {
+    if (empty($reservas)) {
+      return ['package' => null, 'extras' => []];
+    }
+
+    $byId = [];
     foreach ($reservas as $r) {
       if (!is_object($r)) continue;
+      $rid = (int) ($r->Id ?? 0);
+      if ($rid) $byId[$rid] = $r;
+    }
 
-      $m = function_exists('casanova_map_wsreserva') ? casanova_map_wsreserva($r) : [];
+    $has_parent = function($r) use ($byId): bool {
+      $pid = (int) ($r->Anidacion_IdReservaContenedora ?? 0);
+      return $pid > 0 && isset($byId[$pid]);
+    };
 
-      $tipo = strtolower((string) ($m['tipo'] ?? ($r->TipoReserva ?? '')));
-      $title = (string) ($m['descripcion'] ?? ($r->Descripcion ?? 'Servicio'));
-      $id = (string) ($m['codigo'] ?? ($r->Codigo ?? ($r->Id ?? '')));
-
-      $svc_type = 'extra';
-      if (strpos($tipo, 'hotel') !== false) $svc_type = 'hotel';
-      elseif (strpos($tipo, 'golf') !== false) $svc_type = 'golf';
-      elseif (strpos($tipo, 'transfer') !== false || strpos($tipo, 'tras') !== false) $svc_type = 'transfer';
-      elseif (strpos($tipo, 'paquete') !== false || strpos($tipo, 'package') !== false || strpos($tipo, 'pq') !== false) $svc_type = 'package';
-
-      $status = null;
-      if (function_exists('casanova_reserva_estado_from_mapped') && is_array($m) && !empty($m)) {
-        [$lbl, $tone] = casanova_reserva_estado_from_mapped($m);
-        $status = $tone === 'ok' ? 'ok' : ($tone === 'bad' ? 'cancelled' : 'pending');
+    $pqs = [];
+    foreach ($reservas as $r) {
+      if (!is_object($r)) continue;
+      $tipo = (string) ($r->TipoReserva ?? '');
+      if ($tipo === 'PQ' && !$has_parent($r)) {
+        $pqs[(int) ($r->Id ?? 0)] = $r;
       }
+    }
+
+    $children = [];
+    foreach ($reservas as $r) {
+      if (!is_object($r)) continue;
+      $pid = (int) ($r->Anidacion_IdReservaContenedora ?? 0);
+      $rid = (int) ($r->Id ?? 0);
+      if ($pid > 0 && $rid > 0) {
+        $children[$pid][] = $r;
+      }
+    }
+
+    $expediente_pagado = self::expediente_pagado($idExpediente);
+    $extras = [];
+
+    if (empty($pqs)) {
+      foreach ($reservas as $r) {
+        if (!is_object($r)) continue;
+        $extras[] = self::normalize_service($r, $idExpediente, false, $expediente_pagado, true);
+      }
+      return ['package' => null, 'extras' => $extras];
+    }
+
+    foreach ($reservas as $r) {
+      if (!is_object($r)) continue;
+      if ($has_parent($r)) continue;
+      $tipo = (string) ($r->TipoReserva ?? '');
+      if ($tipo === 'PQ') continue;
+      $extras[] = self::normalize_service($r, $idExpediente, false, $expediente_pagado, true);
+    }
+
+    $root = reset($pqs);
+    $root_id = (int) ($root->Id ?? 0);
+    $pkg = self::normalize_service($root, $idExpediente, true, false, true);
+    unset($pkg['included'], $pkg['actions']);
+    $pkg['type'] = 'PQ';
+    $pkg['services'] = [];
+
+    $kids = $children[$root_id] ?? [];
+    foreach ($kids as $kid) {
+      $pkg['services'][] = self::normalize_service($kid, $idExpediente, true, $expediente_pagado, false);
+    }
+
+    return [
+      'package' => $pkg,
+      'extras' => $extras,
+    ];
+  }
+
+  /**
+   * @return array<string,mixed>
+   */
+  private static function normalize_service($r, int $idExpediente, bool $included, bool $allow_voucher, bool $show_price = true): array {
+    $m = function_exists('casanova_map_wsreserva') ? casanova_map_wsreserva($r) : [];
+    $tipo = strtoupper((string) ($m['tipo'] ?? ($r->TipoReserva ?? '')));
+    $code = (string) ($m['codigo'] ?? ($r->Codigo ?? ($r->Id ?? '')));
+    $title = (string) ($m['descripcion'] ?? ($r->Descripcion ?? 'Servicio'));
+    $price = null;
+
+    if ($show_price && isset($r->Venta) && $r->Venta !== '') {
+      $price = is_numeric($r->Venta) ? (float) $r->Venta : null;
+    }
+
+    $dates = function_exists('casanova_fmt_date_range') ? casanova_fmt_date_range($r->FechaDesde ?? null, $r->FechaHasta ?? null) : '';
+
+    $actions = self::build_actions($allow_voucher);
+
+    return [
+      'id' => $code ?: ('srv-' . (int) ($r->Id ?? 0)),
+      'type' => $tipo !== '' ? $tipo : 'OT',
+      'title' => $title,
+      'date_range' => $dates,
+      'price' => $price,
+      'included' => $included,
+      'actions' => $actions,
+    ];
+  }
+
+  /**
+   * @return array{detail:bool,voucher:bool,pdf:bool}
+   */
+  private static function build_actions(bool $allow_voucher): array {
+    return [
+      'detail' => true,
+      'voucher' => $allow_voucher,
+      'pdf' => $allow_voucher,
+    ];
+  }
+
+  private static function expediente_pagado(int $idExpediente): bool {
+    if (!function_exists('casanova_calc_pago_expediente') || !function_exists('casanova_giav_reservas_por_expediente')) {
+      return false;
+    }
+
+    $user_id = get_current_user_id();
+    $idCliente = (int) get_user_meta($user_id, 'casanova_idcliente', true);
+    if (!$idCliente) return false;
+
+    $reservas = casanova_giav_reservas_por_expediente($idExpediente, $idCliente);
+    if (!is_array($reservas)) return false;
+
+    $calc = casanova_calc_pago_expediente($idExpediente, $idCliente, $reservas);
+    if (is_wp_error($calc)) return false;
+
+    return !empty($calc['expediente_pagado']);
+  }
+
+  /**
+   * @return array<int,array<string,string>>
+   */
+  private static function build_passengers(int $idExpediente): array {
+    if (!function_exists('casanova_giav_pasajeros_por_expediente')) return [];
+    $items = casanova_giav_pasajeros_por_expediente($idExpediente);
+    if (!is_array($items)) return [];
+
+    $out = [];
+    foreach ($items as $p) {
+      if (!is_object($p)) continue;
+      $dx = $p->DatosExternos ?? null;
+      $name = '';
+      if (is_object($dx)) {
+        $name = trim((string) ($dx->NombrePasajero ?? $dx->Nombre ?? ''));
+      }
+      if ($name === '') {
+        $name = trim((string) ($p->NombrePasajero ?? $p->Nombre ?? ''));
+      }
+      if ($name === '') {
+        $n = trim((string) ($p->Nombre ?? ''));
+        $a = trim((string) ($p->Apellidos ?? ''));
+        $name = trim($n . ' ' . $a);
+      }
+      if ($name === '') {
+        $idp = (int) ($p->IdPasajero ?? $p->Id ?? 0);
+        $name = $idp > 0 ? sprintf(__('Pasajero #%d', 'casanova-portal'), $idp) : __('Pasajero', 'casanova-portal');
+      }
+      $type = (string) ($p->TipoPasajero ?? '');
+      if ($type === '' && isset($p->Edad)) {
+        $type = sprintf(__('%s años', 'casanova-portal'), (string) $p->Edad);
+      }
+      $doc = (string) ($p->Documento ?? '');
 
       $out[] = [
-        'id' => $id ?: ('srv-' . (count($out) + 1)),
-        'type' => $svc_type,
-        'title' => $title,
-        'status' => $status,
+        'name' => $name,
+        'type' => $type,
+        'document' => $doc,
       ];
     }
 
@@ -267,7 +423,9 @@ class Casanova_Trip_Service {
         'status' => 'mock',
         'giav'   => ['ok' => true, 'source' => 'mock', 'error' => null],
         'trip'   => null,
-        'services' => [],
+        'package' => null,
+        'extras' => [],
+        'passengers' => [],
         'payments' => null,
         'invoices' => [],
         'vouchers' => [],
@@ -277,7 +435,9 @@ class Casanova_Trip_Service {
 
     if (!isset($data['status'])) $data['status'] = 'mock';
     if (!isset($data['giav'])) $data['giav'] = ['ok' => true, 'source' => 'mock', 'error' => null];
-    if (!isset($data['services']) || !is_array($data['services'])) $data['services'] = [];
+    if (!array_key_exists('package', $data)) $data['package'] = null;
+    if (!isset($data['extras']) || !is_array($data['extras'])) $data['extras'] = [];
+    if (!isset($data['passengers']) || !is_array($data['passengers'])) $data['passengers'] = [];
     if (!isset($data['invoices']) || !is_array($data['invoices'])) $data['invoices'] = [];
     if (!isset($data['vouchers']) || !is_array($data['vouchers'])) $data['vouchers'] = [];
     if (!isset($data['messages_meta']) || !is_array($data['messages_meta'])) $data['messages_meta'] = ['unread_count' => 0, 'last_message_at' => null];

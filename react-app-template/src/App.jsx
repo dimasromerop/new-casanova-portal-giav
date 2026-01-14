@@ -691,7 +691,8 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
 
   const trip = detail?.trip || fallbackTrip;
   const payments = detail?.payments || null;
-  const services = Array.isArray(detail?.services) ? detail.services : [];
+  const pkg = detail?.package || null;
+  const extras = Array.isArray(detail?.extras) ? detail.extras : [];
   const invoices = Array.isArray(detail?.invoices) ? detail.invoices : [];
   const vouchers = Array.isArray(detail?.vouchers) ? detail.vouchers : [];
 
@@ -730,53 +731,82 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
             <div className="cp-card-title">Resumen</div>
             <div className="cp-card-sub">Servicios y planificación del viaje</div>
 
-            {services.length === 0 ? (
+            {!pkg && extras.length === 0 ? (
               <div style={{ marginTop: 10 }} className="cp-meta">
                 No hay servicios disponibles ahora mismo.
               </div>
             ) : (
-              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-                {services.map((s) => (
-                  <div
-                    key={s.id || `${s.type}-${s.title}`}
-                    style={{
-                      border: "1px solid rgba(0,0,0,0.08)",
-                      borderRadius: 12,
-                      padding: 12,
-                      background: "#fff",
-                    }}
-                  >
+              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+                {pkg ? (
+                  <div className="cp-card" style={{ background: "#fff" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <div style={{ fontWeight: 700 }}>{s.title || "Servicio"}</div>
-                      <div className="cp-chip">{(s.type || "servicio").toUpperCase()}</div>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{pkg.title || "Paquete"}</div>
+                        <div className="cp-meta">{pkg.date_range || "Fechas por confirmar"}</div>
+                      </div>
+                      <div className="cp-chip">PQ</div>
                     </div>
-                    <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
-                      {s.type === "hotel" && (s.check_in || s.check_out) ? (
-                        <span>
-                          <span className="cp-strong">Hotel:</span> {formatDateES(s.check_in)} → {formatDateES(s.check_out)}
-                          {typeof s.nights === "number" ? ` · ${s.nights} noches` : ""}
-                          {s.board ? ` · ${s.board}` : ""}
-                        </span>
-                      ) : s.type === "golf" && (s.date || s.tee_time || s.course) ? (
-                        <span>
-                          <span className="cp-strong">Golf:</span> {s.course || s.title}
-                          {s.date ? ` · ${formatDateES(s.date)}` : ""}
-                          {s.tee_time ? ` · ${s.tee_time}` : ""}
-                        </span>
-                      ) : s.type === "transfer" && (s.from || s.to || s.date) ? (
-                        <span>
-                          <span className="cp-strong">Transfer:</span> {s.from || "—"} → {s.to || "—"}
-                          {s.date ? ` · ${formatDateES(s.date)}` : ""}
-                          {s.time ? ` · ${s.time}` : ""}
-                        </span>
-                      ) : s.notes ? (
-                        <span>{s.notes}</span>
-                      ) : (
-                        <span>Detalles no disponibles.</span>
-                      )}
+                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {(Array.isArray(pkg.services) ? pkg.services : []).map((s) => (
+                        <div
+                          key={s.id || `${s.type}-${s.title}`}
+                          style={{
+                            border: "1px solid rgba(0,0,0,0.08)",
+                            borderRadius: 12,
+                            padding: "10px 12px",
+                            background: "#fff",
+                            marginLeft: 18,
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                            <div style={{ fontWeight: 600 }}>{s.title || "Servicio"}</div>
+                            <div className="cp-chip">{(s.type || "servicio").toUpperCase()}</div>
+                          </div>
+                          <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
+                            {s.date_range || "Fechas por confirmar"}
+                          </div>
+                          <div style={{ marginTop: 8 }}>
+                            <button className="cp-btn" disabled={!s.actions?.detail}>
+                              Detalle
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                ) : null}
+
+                {extras.length > 0 ? (
+                  <div className="cp-card" style={{ background: "#fff" }}>
+                    <div className="cp-card-title" style={{ marginBottom: 8 }}>Extras</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {extras.map((s) => (
+                        <div
+                          key={s.id || `${s.type}-${s.title}`}
+                          style={{
+                            border: "1px solid rgba(0,0,0,0.08)",
+                            borderRadius: 12,
+                            padding: 12,
+                            background: "#fff",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                            <div style={{ fontWeight: 700 }}>{s.title || "Servicio"}</div>
+                            <div className="cp-chip">{(s.type || "servicio").toUpperCase()}</div>
+                          </div>
+                          <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
+                            {s.date_range || "Fechas por confirmar"}
+                          </div>
+                          <div style={{ marginTop: 8 }}>
+                            <button className="cp-btn" disabled={!s.actions?.detail}>
+                              Detalle
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

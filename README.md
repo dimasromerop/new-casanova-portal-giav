@@ -1,5 +1,65 @@
 # Casanova Portal - GIAV (pagos React)
 
+## Cambios recientes
+- `includes/services/trip-service.php` ahora normaliza el detalle del viaje (paquete PQ + servicios incluidos + extras) directamente desde GIAV.
+- `react-app-template/src/App.jsx` consume `package` y `extras` sin reconstrucción en frontend.
+- `includes/mock/trip.json` contiene escenarios mock para `/trip` con estructura jerárquica.
+
+## Endpoint `/trip`
+`GET /wp-json/casanova/v1/trip?id=XXXX`
+
+Forma mínima del JSON:
+
+```json
+{
+  "status": "ok",
+  "giav": { "ok": true, "source": "giav|cache|mock", "error": null },
+  "trip": {
+    "id": 123,
+    "title": "…",
+    "code": "…",
+    "status": "…",
+    "date_range": "dd/mm/yyyy – dd/mm/yyyy"
+  },
+  "package": {
+    "id": "…",
+    "type": "PQ",
+    "title": "…",
+    "date_range": "…",
+    "price": 123,
+    "services": [
+      {
+        "id": "…",
+        "type": "HT|GF|TR|AV|OT|…",
+        "title": "…",
+        "date_range": "…",
+        "price": null,
+        "included": true,
+        "actions": { "detail": true, "voucher": true, "pdf": true }
+      }
+    ]
+  },
+  "extras": [
+    {
+      "id": "…",
+      "type": "…",
+      "title": "…",
+      "date_range": "…",
+      "price": 123,
+      "included": false,
+      "actions": { "detail": true, "voucher": false, "pdf": false }
+    }
+  ],
+  "passengers": [
+    { "name": "…", "type": "…", "document": "…" }
+  ]
+}
+```
+
+## Cómo probar
+- GIAV real: `GET /wp-json/casanova/v1/trip?id=250056` (usuario logueado).
+- Mock: `GET /wp-json/casanova/v1/trip?id=250056&mock=1` o `GET /wp-json/casanova/v1/trip?id=250057&mock=1`.
+
 ## Nuevos endpoints
 - `POST /wp-json/casanova/v1/payments/intent`
   - Body: `{"expediente_id": 12345, "type": "deposit"|"balance"}`

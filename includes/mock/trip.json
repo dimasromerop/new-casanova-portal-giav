@@ -1,5 +1,5 @@
 {
-  "12345": {
+  "250056": {
     "status": "mock",
     "giav": {
       "ok": true,
@@ -7,32 +7,74 @@
       "error": null
     },
     "trip": {
-      "id": 12345,
-      "code": "PT-12345",
+      "id": 250056,
+      "code": "PT-250056",
       "title": "Portugal Golf Escape",
       "status": "Confirmado",
       "date_start": "2026-02-10",
       "date_end": "2026-02-14",
-      "pax": 4
+      "date_range": "10/02/2026 – 14/02/2026"
     },
-    "services": [
+    "package": {
+      "id": "PQ-250056",
+      "type": "PQ",
+      "title": "Paquete Golf & Estancia",
+      "date_range": "10/02/2026 – 14/02/2026",
+      "price": 4200,
+      "services": [
+        {
+          "id": "HT-9001",
+          "type": "HT",
+          "title": "Tivoli Estela Golf & Lodges",
+          "date_range": "10/02/2026 – 14/02/2026",
+          "price": null,
+          "included": true,
+          "actions": {
+            "detail": true,
+            "voucher": false,
+            "pdf": false
+          }
+        },
+        {
+          "id": "GF-3221",
+          "type": "GF",
+          "title": "Oporto Golf Club",
+          "date_range": "11/02/2026 – 11/02/2026",
+          "price": null,
+          "included": true,
+          "actions": {
+            "detail": true,
+            "voucher": false,
+            "pdf": false
+          }
+        }
+      ]
+    },
+    "extras": [
       {
-        "id": "srv-hotel-1",
-        "type": "hotel",
-        "title": "Tivoli Estela Golf & Lodges",
-        "status": "ok"
-      },
-      {
-        "id": "srv-golf-1",
-        "type": "golf",
-        "title": "Oporto Golf Club",
-        "status": "ok"
-      },
-      {
-        "id": "srv-transfer-1",
-        "type": "transfer",
+        "id": "TR-7788",
+        "type": "TR",
         "title": "Transfer Aeropuerto → Hotel",
-        "status": "ok"
+        "date_range": "10/02/2026 – 10/02/2026",
+        "price": 120,
+        "included": false,
+        "actions": {
+          "detail": true,
+          "voucher": false,
+          "pdf": false
+        }
+      }
+    ],
+    "passengers": [
+      {
+        "name": "Juan Pérez",
+        "type": "Adulto",
+        "document": "X1234567"
+      },
+      {
+        "name": "Ana López",
+        "type": "Adulto",
+        "document": "Y7654321"
       }
     ],
     "payments": {
@@ -41,7 +83,7 @@
       "paid": 1500,
       "pending": 3000,
       "can_pay": true,
-      "pay_url": "/portal/pago?expediente=12345",
+      "pay_url": "/portal/pago?expediente=250056",
       "actions": {
         "deposit": {
           "allowed": true,
@@ -60,7 +102,7 @@
       "last_message_at": "2026-01-05T10:15:00+01:00"
     }
   },
-  "23456": {
+  "250057": {
     "status": "mock",
     "giav": {
       "ok": true,
@@ -68,42 +110,57 @@
       "error": null
     },
     "trip": {
-      "id": 23456,
-      "code": "ES-23456",
+      "id": 250057,
+      "code": "ES-250057",
       "title": "Costa del Sol",
-      "status": "Confirmado",
+      "status": "En revisión",
       "date_start": "2026-04-02",
       "date_end": "2026-04-06",
-      "pax": 4,
-      "destination": "España"
+      "date_range": "02/04/2026 – 06/04/2026"
     },
-    "services": [
+    "package": null,
+    "extras": [
       {
-        "id": "srv-hotel-1",
-        "type": "hotel",
-        "title": "Tivoli Estela Golf & Lodges",
-        "status": "ok"
+        "id": "HT-8801",
+        "type": "HT",
+        "title": "Hotel Puente Romano",
+        "date_range": "02/04/2026 – 06/04/2026",
+        "price": 1600,
+        "included": false,
+        "actions": {
+          "detail": true,
+          "voucher": false,
+          "pdf": false
+        }
       },
       {
-        "id": "srv-golf-1",
-        "type": "golf",
-        "title": "Oporto Golf Club",
-        "status": "ok"
-      },
+        "id": "OT-9911",
+        "type": "OT",
+        "title": "Cena especial",
+        "date_range": "03/04/2026 – 03/04/2026",
+        "price": 90,
+        "included": false,
+        "actions": {
+          "detail": true,
+          "voucher": false,
+          "pdf": false
+        }
+      }
+    ],
+    "passengers": [
       {
-        "id": "srv-transfer-1",
-        "type": "transfer",
-        "title": "Transfer Aeropuerto → Hotel",
-        "status": "ok"
+        "name": "María García",
+        "type": "Adulto",
+        "document": "Z9988776"
       }
     ],
     "payments": {
       "currency": "EUR",
-      "total": 4500,
-      "paid": 1500,
-      "pending": 3000,
+      "total": 2800,
+      "paid": 0,
+      "pending": 2800,
       "can_pay": true,
-      "pay_url": "/portal/pago?expediente=12345",
+      "pay_url": "/portal/pago?expediente=250057",
       "actions": {
         "deposit": {
           "allowed": true,
@@ -118,8 +175,8 @@
     "invoices": [],
     "vouchers": [],
     "messages_meta": {
-      "unread_count": 2,
-      "last_message_at": "2026-01-05T10:15:00+01:00"
+      "unread_count": 0,
+      "last_message_at": null
     }
   }
 }
