@@ -41,7 +41,17 @@
       "paid": 1500,
       "pending": 3000,
       "can_pay": true,
-      "pay_url": "/portal/pago?expediente=12345"
+      "pay_url": "/portal/pago?expediente=12345",
+      "actions": {
+        "deposit": {
+          "allowed": true,
+          "amount": 500
+        },
+        "balance": {
+          "allowed": true,
+          "amount": 3000
+        }
+      }
     },
     "invoices": [],
     "vouchers": [],
@@ -93,7 +103,17 @@
       "paid": 1500,
       "pending": 3000,
       "can_pay": true,
-      "pay_url": "/portal/pago?expediente=12345"
+      "pay_url": "/portal/pago?expediente=12345",
+      "actions": {
+        "deposit": {
+          "allowed": true,
+          "amount": 500
+        },
+        "balance": {
+          "allowed": true,
+          "amount": 3000
+        }
+      }
     },
     "invoices": [],
     "vouchers": [],
