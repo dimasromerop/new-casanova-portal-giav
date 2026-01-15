@@ -10,12 +10,12 @@ if (!defined('ABSPATH')) exit;
  */
 class Casanova_Dashboard_Service {
 
-  public static function build_for_user(int $user_id): Casanova_Dashboard_DTO {
+  public static function build_for_user(int $user_id, bool $refresh = false): Casanova_Dashboard_DTO {
 
     $idCliente = (int) get_user_meta($user_id, 'casanova_idcliente', true);
 
     // Cache ligero: GIAV manda, WP consume.
-    if ($idCliente > 0) {
+    if (!$refresh && $idCliente > 0) {
       $cache_key = 'casanova_dash_v1_' . $idCliente;
       $cached = get_transient($cache_key);
       if (is_array($cached) && !empty($cached)) {
@@ -113,7 +113,7 @@ class Casanova_Dashboard_Service {
     foreach ($exps as $e) {
       if (!is_object($e)) continue;
 
-      $ini = $e->FechaInicio ?? $e->FechaDesde ?? $e->Desde ?? null;
+      $ini = $e->FechaDesde ?? $e->Desde ?? $e->FechaInicio ?? $e->FechaInicioViaje ?? null;
       if (!$ini) continue;
 
       $ts = strtotime((string) $ini);
@@ -142,7 +142,7 @@ class Casanova_Dashboard_Service {
       if (empty($row['obj']) || !is_object($row['obj'])) continue;
       $e = $row['obj'];
 
-    $ini = $e->FechaInicio ?? $e->FechaDesde ?? $e->Desde ?? null;
+    $ini = $e->FechaDesde ?? $e->Desde ?? $e->FechaInicio ?? $e->FechaInicioViaje ?? null;
 
     $idExp = (int) ($e->IdExpediente ?? $e->IDExpediente ?? $e->Id ?? 0);
     if (!$idExp && isset($e->Codigo)) $idExp = (int) $e->Codigo;
@@ -151,7 +151,14 @@ class Casanova_Dashboard_Service {
     $code   = (string) ($e->Codigo ?? '');
     $status = (string) ($e->Estado ?? $e->Situacion ?? '');
 
-    $fin = $e->FechaFin ?? $e->FechaHasta ?? $e->Hasta ?? null;
+    // Fallback: si GIAV no trae Estado/Situación, inferimos por fechas (sin lógica en React)
+    if ($status === '' && ($ini || $fin)) {
+      $today_iso = date('Y-m-d');
+      $fin_iso = $fin && function_exists('casanova_date_to_iso') ? (string) casanova_date_to_iso($fin) : '';
+      $status = ($fin_iso && $fin_iso < $today_iso) ? 'Cerrado' : 'Abierto';
+    }
+
+    $fin = $e->FechaHasta ?? $e->Hasta ?? $e->FechaFin ?? $e->FechaFinViaje ?? null;
     $date_range = function_exists('casanova_fmt_date_range')
       ? (string) casanova_fmt_date_range($ini ?? null, $fin)
       : '';

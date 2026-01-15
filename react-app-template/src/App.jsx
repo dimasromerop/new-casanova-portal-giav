@@ -525,9 +525,9 @@ function PaymentActions({ expediente, payments, mock }) {
           </button>
         ) : null}
 
-        {!hasActions ? (
+        {!hasActions && !isPaid ? (
           <div className="cp-meta" style={{ alignSelf: "center" }}>
-            Aún no hay pagos disponibles para este viaje.
+            No hay acciones de pago disponibles para este viaje.
           </div>
         ) : null}
       </div>
