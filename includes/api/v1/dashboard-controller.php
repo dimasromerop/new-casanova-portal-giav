@@ -22,6 +22,7 @@ class Casanova_Dashboard_Controller {
   public static function handle(WP_REST_Request $request) {
     try {
       $mock = (int) $request->get_param('mock') === 1;
+      $refresh = (int) $request->get_param('refresh') === 1;
       if ($mock && current_user_can('manage_options')) {
         $file = CASANOVA_GIAV_PLUGIN_PATH . 'includes/mock/dashboard.json';
         $raw = file_exists($file) ? file_get_contents($file) : '';
@@ -41,7 +42,7 @@ class Casanova_Dashboard_Controller {
       }
 
       $user_id = get_current_user_id();
-      $dto = Casanova_Dashboard_Service::build_for_user($user_id);
+      $dto = Casanova_Dashboard_Service::build_for_user($user_id, $refresh);
       $out = $dto->to_array();
       // Encapsulamos estado para consumers React.
       if (!isset($out['status'])) $out['status'] = 'ok';

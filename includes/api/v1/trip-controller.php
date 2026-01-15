@@ -15,6 +15,7 @@ class Casanova_Trip_Controller {
       'args'                => [
         'id'   => ['type' => 'integer', 'required' => true],
         'mock' => ['type' => 'integer', 'required' => false],
+        'refresh' => ['type' => 'integer', 'required' => false],
       ],
     ]);
     register_rest_route('casanova/v1', '/trip/(?P<id>\\d+)', [
@@ -24,6 +25,7 @@ class Casanova_Trip_Controller {
       'args'                => [
         'id'   => ['type' => 'integer', 'required' => true],
         'mock' => ['type' => 'integer', 'required' => false],
+        'refresh' => ['type' => 'integer', 'required' => false],
       ],
     ]);
   }

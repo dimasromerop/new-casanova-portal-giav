@@ -141,6 +141,9 @@ class Casanova_Dashboard_Service {
     foreach ($items as $row) {
       if (empty($row['obj']) || !is_object($row['obj'])) continue;
       $e = $row['obj'];
+
+    $ini = $e->FechaInicio ?? $e->FechaDesde ?? $e->Desde ?? null;
+
     $idExp = (int) ($e->IdExpediente ?? $e->IDExpediente ?? $e->Id ?? 0);
     if (!$idExp && isset($e->Codigo)) $idExp = (int) $e->Codigo;
 
@@ -150,7 +153,7 @@ class Casanova_Dashboard_Service {
 
     $fin = $e->FechaFin ?? $e->FechaHasta ?? $e->Hasta ?? null;
     $date_range = function_exists('casanova_fmt_date_range')
-      ? (string) casanova_fmt_date_range($e->FechaInicio ?? null, $fin)
+      ? (string) casanova_fmt_date_range($ini ?? null, $fin)
       : '';
 
     $base = function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/');
@@ -200,6 +203,8 @@ class Casanova_Dashboard_Service {
         'title'      => $title,
         'code'       => $code,
         'status'     => $status,
+        'date_start' => $ini ? gmdate('Y-m-d', strtotime((string)$ini)) : null,
+        'date_end'   => $fin ? gmdate('Y-m-d', strtotime((string)$fin)) : null,
         'date_range' => $date_range,
         'url'        => $url,
         'days_left'  => $days_left,
@@ -277,6 +282,51 @@ class Casanova_Dashboard_Service {
     ];
   }
 
+
+  /**
+   * Devuelve un listado normalizado de facturas (GIAV) para un expediente.
+   * @return array<int,array<string,mixed>>
+   */
+  private static function get_invoices_for_expediente(int $idCliente, int $idExpediente): array {
+    if ($idCliente <= 0 || $idExpediente <= 0 || !function_exists('casanova_giav_facturas_por_expediente')) {
+      return [];
+    }
+    $rows = casanova_giav_facturas_por_expediente($idExpediente, $idCliente, 50, 0);
+    if (is_wp_error($rows) || !is_array($rows)) return [];
+    $out = [];
+    foreach ($rows as $f) {
+      if (!is_object($f)) continue;
+      $id = (int) ($f->Id ?? $f->ID ?? 0);
+      if ($id <= 0) continue;
+
+      $num = (string) ($f->Numero ?? $f->NumFactura ?? $f->Codigo ?? ('F' . $id));
+      $fecha = (string) ($f->Fecha ?? $f->FechaFactura ?? '');
+      $iso = $fecha ? gmdate('Y-m-d', strtotime($fecha)) : null;
+
+      $importe = null;
+      foreach (['Importe', 'Total', 'ImporteTotal', 'ImporteFactura'] as $k) {
+        if (isset($f->$k) && $f->$k !== '') { $importe = (float) $f->$k; break; }
+      }
+
+      $estado = (string) ($f->Estado ?? $f->Situacion ?? '');
+      $out[] = [
+        'id' => $id,
+        'title' => $num,
+        'date' => $iso,
+        'amount' => $importe,
+        'status' => $estado,
+        'download_url' => '', // se rellena en /trip, aquí solo contamos
+      ];
+    }
+    return $out;
+  }
+
+  private static function get_invoices_count_for_expediente(int $idCliente, int $idExpediente): int {
+    $inv = self::get_invoices_for_expediente($idCliente, $idExpediente);
+    return is_array($inv) ? count($inv) : 0;
+  }
+
+
   /**
    * @param array<int,array<string,mixed>> $trips
    * @param array<string,mixed> $payments
@@ -307,6 +357,20 @@ class Casanova_Dashboard_Service {
         'trip_label' => $trip_label,
       ];
     }
+    // Si no hay pagos pendientes, revisamos si hay facturas disponibles para descargar
+    $inv_count = self::get_invoices_count_for_expediente($idCliente, (int) $next_trip['id']);
+    if ($inv_count > 0) {
+      return [
+        'status' => 'invoices',
+        'badge' => __('Facturas', 'casanova-portal'),
+        'description' => sprintf(__('Tienes %d facturas disponibles.', 'casanova-portal'), $inv_count),
+        'expediente_id' => (int) $next_trip['id'],
+        'trip_label' => $trip_label,
+        'invoice_count' => $inv_count,
+      ];
+    }
+
+
 
     $note = null;
     if (count($trips) >= 2) {

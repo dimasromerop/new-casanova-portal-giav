@@ -45,10 +45,23 @@ function casanova_portal_voucher_url(int $idExpediente, int $idReserva, string $
  */
 add_action('init', function () {
   $act = isset($_REQUEST['casanova_action']) ? (string)$_REQUEST['casanova_action'] : '';
-  if ($act !== 'voucher' && $act !== 'voucher_pdf') return;
+  if ($act !== 'voucher' && $act !== 'voucher_pdf' && $act !== 'invoice_pdf') return;
 
   // Normalizamos para reutilizar handlers existentes.
-  $_REQUEST['action'] = ($act === 'voucher_pdf') ? 'casanova_voucher_pdf' : 'casanova_voucher';
+  $_REQUEST['action'] = ($act === 'voucher_pdf') ? 'casanova_voucher_pdf' : (($act === 'invoice_pdf') ? 'casanova_invoice_pdf' : 'casanova_voucher');
+
+
+  if ($act === 'invoice_pdf') {
+    if (function_exists('casanova_handle_invoice_pdf')) {
+      casanova_handle_invoice_pdf();
+    } else {
+      // fallback: ejecutar el handler legacy de admin_post si existe
+      if (has_action('admin_post_casanova_invoice_pdf')) {
+        do_action('admin_post_casanova_invoice_pdf');
+      }
+    }
+    return;
+  }
 
   if ($act === 'voucher_pdf') {
     if (function_exists('casanova_handle_voucher_pdf')) {

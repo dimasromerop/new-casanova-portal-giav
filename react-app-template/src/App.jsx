@@ -1506,7 +1506,7 @@ function App() {
       else setLoadingDash(true);
 
       setDashErr(null);
-      const qs = route.mock ? "?mock=1" : "";
+      const qs = route.mock ? "?mock=1" : (refresh ? "?refresh=1" : "");
       const [dashRes, inboxRes] = await Promise.all([
         api(`/dashboard${qs}`),
         api(`/inbox${qs}`),

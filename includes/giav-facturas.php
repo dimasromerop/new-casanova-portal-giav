@@ -93,8 +93,13 @@ function casanova_giav_factura_pdf_get(int $idFactura) {
 /**
  * Endpoint para descargar factura (admin-post.php).
  */
-add_action('admin_post_casanova_invoice_pdf', function () {
 
+
+/**
+ * Handler público para descargar factura (sin pasar por /wp-admin/admin-post.php).
+ * Se invoca desde portal-actions.php cuando casanova_action=invoice_pdf.
+ */
+function casanova_handle_invoice_pdf(): void {
  $user_id     = get_current_user_id();
  $idExpediente = (int) ($_GET['expediente'] ?? 0);
  $user_id = get_current_user_id();
@@ -202,9 +207,9 @@ header('Content-Transfer-Encoding: binary');
 header('Content-Length: ' . strlen($bin));
 echo $bin;
 exit;
+}
 
-
-});
+add_action('admin_post_casanova_invoice_pdf', 'casanova_handle_invoice_pdf');
 
 
 /**

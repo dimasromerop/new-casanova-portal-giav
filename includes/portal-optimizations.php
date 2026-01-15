@@ -76,9 +76,24 @@ function casanova_log(string $channel, string $message, array $context = [], str
 
 // ===== Cache =====
 
+
+/**
+ * Cache buster global: incrementa para invalidar transients sin borrarlos.
+ */
+function casanova_cache_buster_get(): int {
+  $v = (int) get_option('casanova_cache_buster', 1);
+  return $v > 0 ? $v : 1;
+}
+function casanova_cache_buster_bump(): int {
+  $v = casanova_cache_buster_get() + 1;
+  update_option('casanova_cache_buster', $v, false);
+  return $v;
+}
+
 function casanova_cache_key(string $key): string {
   $blog_id = function_exists('get_current_blog_id') ? (int)get_current_blog_id() : 1;
-  return 'casanova_' . $blog_id . '_' . md5($key);
+    $buster = function_exists('casanova_cache_buster_get') ? casanova_cache_buster_get() : 1;
+  return 'casanova_' . $blog_id . '_' . $buster . '_' . md5($key);
 }
 
 /**
