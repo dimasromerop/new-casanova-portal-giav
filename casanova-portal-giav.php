@@ -72,8 +72,10 @@ add_action('wp_enqueue_scripts', function () {
   }
 
   if ($should_load_app) {
-    $app_js  = CASANOVA_GIAV_PLUGIN_PATH . 'assets/portal-app.js';
-    $app_css = CASANOVA_GIAV_PLUGIN_PATH . 'assets/portal-app.css';
+    $app_js  = CASANOVA_GIAV_PLUGIN_PATH . 'react-app-template/dist/portal-app.js';
+    $app_js_fallback  = CASANOVA_GIAV_PLUGIN_PATH . 'assets/portal-app.js';
+    $app_css = CASANOVA_GIAV_PLUGIN_PATH . 'react-app-template/dist/portal-app.css';
+    $app_css_fallback = CASANOVA_GIAV_PLUGIN_PATH . 'assets/portal-app.css';
 
     $use_build = file_exists($app_js);
     $handle    = 'casanova-portal-app';

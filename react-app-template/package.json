@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "build:wp": "vite build && node scripts/copy-to-assets.cjs",
+    "dev:wp": "vite --host"
   },
   "dependencies": {
     "react": "18.3.1",
