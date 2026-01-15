@@ -51,6 +51,32 @@ class Casanova_Dashboard_Service {
       }
     }
 
+    $m_mult = null;
+    $m_progress = 0;
+    $m_remaining = null;
+    $m_next_label = null;
+    $m_tier_cfg = function_exists('casanova_mulligans_tier_cfg') ? casanova_mulligans_tier_cfg($m_tier) : [];
+    if (isset($m_tier_cfg['mult'])) {
+      $m_mult = (float) $m_tier_cfg['mult'];
+    }
+
+    if (function_exists('casanova_mulligans_tiers')) {
+      $tiers = casanova_mulligans_tiers();
+      $tier_keys = array_keys($tiers);
+      $idx = array_search($m_tier, $tier_keys, true);
+      $next_key = ($idx !== false && isset($tier_keys[$idx + 1])) ? $tier_keys[$idx + 1] : null;
+      if ($next_key && isset($tiers[$next_key])) {
+        $next_cfg = $tiers[$next_key];
+        $next_min = (float) ($next_cfg['min'] ?? 0);
+        $prev_min = (float) ($m_tier_cfg['min'] ?? 0);
+        $span = max(1.0, $next_min - $prev_min);
+        $m_progress = (int) max(0, min(100, round((($m_spend - $prev_min) / $span) * 100)));
+        $m_remaining = max(0.0, $next_min - $m_spend);
+        $m_next_label = (string) ($next_cfg['label'] ?? '');
+      } else {
+        $m_progress = 100;
+      }
+    }
 
 
     // 2) Viajes futuros (GIAV: expedientes)
@@ -72,11 +98,15 @@ class Casanova_Dashboard_Service {
       'mulligans' => [
         'points'    => $m_points,
         'tier'      => $m_tier,
+        'mult'      => $m_mult,
         'last_sync' => $m_last,
         'spend'     => $m_spend,
         'earned'    => $m_earned,
         'bonus'     => $m_bonus,
         'used'      => $m_used,
+        'progress_pct'     => $m_progress,
+        'remaining_to_next' => $m_remaining,
+        'next_tier_label'   => $m_next_label,
         'ledger'    => $m_ledger,
       ],
       'trips'    => $trips,

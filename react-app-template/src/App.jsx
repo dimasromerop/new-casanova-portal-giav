@@ -464,6 +464,15 @@ function TripHeader({ trip, payments }) {
 
 function PaymentActions({ expediente, payments, mock }) {
   const [state, setState] = useState({ loading: null, error: null });
+  const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
+  const paidAmount = typeof payments?.paid === "number" ? payments.paid : Number.NaN;
+  const pendingCandidate = typeof payments?.pending === "number" ? payments.pending : Number.NaN;
+  const pendingAmount = Number.isFinite(pendingCandidate)
+    ? pendingCandidate
+    : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
+        ? Math.max(0, totalAmount - paidAmount)
+        : null);
+  const isPaidLocal = pendingAmount !== null ? pendingAmount <= 0.01 : false;
   const actions = payments?.actions ?? {};
   const deposit = actions.deposit ?? { allowed: false, amount: 0 };
   const balance = actions.balance ?? { allowed: false, amount: 0 };
@@ -525,9 +534,9 @@ function PaymentActions({ expediente, payments, mock }) {
           </button>
         ) : null}
 
-        {!hasActions && !isPaid ? (
+        {!hasActions && !isPaidLocal ? (
           <div className="cp-meta" style={{ alignSelf: "center" }}>
-            No hay acciones de pago disponibles para este viaje.
+            Aún no hay pagos disponibles para este viaje.
           </div>
         ) : null}
       </div>
@@ -862,7 +871,15 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const bonuses = detail?.bonuses ?? { available: false, items: [] };
   const voucherItems = Array.isArray(bonuses.items) ? bonuses.items : [];
   const chargeHistory = payments?.history ?? [];
-  const isPaid = Boolean(payments?.is_paid);
+  const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
+  const paidAmount = typeof payments?.paid === "number" ? payments.paid : Number.NaN;
+  const pendingCandidate = typeof payments?.pending === "number" ? payments.pending : Number.NaN;
+  const pendingAmount = Number.isFinite(pendingCandidate)
+    ? pendingCandidate
+    : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
+        ? Math.max(0, totalAmount - paidAmount)
+        : null);
+  const isPaid = pendingAmount !== null ? pendingAmount <= 0.01 : false;
   const currency = payments?.currency || "EUR";
   const mulligansUsed = payments?.mulligans_used ?? 0;
 
@@ -1054,30 +1071,48 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
             {invoices.length === 0 ? (
               <div style={{ marginTop: 10 }} className="cp-meta">No hay facturas disponibles.</div>
             ) : (
-              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-                {invoices.map((inv) => (
-                  <a
-                    key={inv.id}
-                    href={inv.download_url}
-                    style={{
-                      display: "block",
-                      textDecoration: "none",
-                      border: "1px solid rgba(0,0,0,0.08)",
-                      borderRadius: 12,
-                      padding: 12,
-                      background: "#fff",
-                      color: "inherit",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <div style={{ fontWeight: 700 }}>{inv.title || "Factura"}</div>
-                      <div style={{ fontSize: 12, opacity: 0.75 }}>{formatDateES(inv.date)}</div>
-                    </div>
-                    <div style={{ marginTop: 6, opacity: 0.85, fontSize: 13 }}>
-                      {typeof inv.total === "number" ? euro(inv.total, inv.currency || "EUR") : "—"}
-                    </div>
-                  </a>
-                ))}
+              <div className="casanova-tablewrap" style={{ marginTop: 14 }}>
+                <table className="casanova-table">
+                  <thead>
+                    <tr>
+                      <th>Factura</th>
+                      <th>Fecha</th>
+                      <th className="num">Importe</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map((inv) => {
+                      const statusRaw = String(inv.status || "").trim();
+                      const statusNormalized = statusRaw.toLowerCase();
+                      let statusClass = "casanova-badge";
+                      if (statusNormalized.includes("pend")) statusClass += " casanova-badge--pending";
+                      else if (statusNormalized.includes("pag")) statusClass += " casanova-badge--pay";
+                      return (
+                        <tr key={inv.id}>
+                          <td>{inv.title || `Factura #${inv.id}`}</td>
+                          <td>{formatDateES(inv.date)}</td>
+                          <td className="num">
+                            {typeof inv.amount === "number" ? euro(inv.amount, inv.currency || "EUR") : "—"}
+                          </td>
+                          <td>
+                            <span className={statusClass}>{statusRaw || "—"}</span>
+                          </td>
+                          <td>
+                            {inv.download_url ? (
+                              <a className="casanova-btn casanova-btn--sm casanova-btn--ghost" href={inv.download_url}>
+                                Descargar PDF
+                              </a>
+                            ) : (
+                              <span className="casanova-btn casanova-btn--sm casanova-btn--disabled">Descargar PDF</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -1283,6 +1318,21 @@ function DashboardView({ data }) {
   const levelLabel = formatTierLabel(mull?.tier);
   const lastSyncLabel = formatTimestamp(mull?.last_sync);
 
+  const tierRaw = String(mull?.tier || "");
+  const tierSlug = tierRaw
+    .trim()
+    .toLowerCase()
+    .replace(/\\s+/g, "_")
+    .replace(/\\+/g, "_plus")
+    .replace(/\\-/g, "_");
+  const tierClass = tierSlug ? "is-" + tierSlug : "";
+  const multLabel = typeof mull?.mult === "number" ? ("x" + mull.mult) : null;
+  const progressRaw = (typeof mull?.progress_pct === "number") ? mull.progress_pct : (typeof mull?.progress === "number" ? (mull.progress <= 1 ? mull.progress * 100 : mull.progress) : 0);
+  const progressPct = Math.max(0, Math.min(100, Math.round(progressRaw || 0)));
+  const remaining = typeof mull?.remaining_to_next === "number" ? mull.remaining_to_next : null;
+  const nextTier = mull?.next_tier_label ? String(mull.next_tier_label) : null;
+  const hintText = (remaining !== null && nextTier) ? ("Te faltan " + euro(remaining) + " para subir a " + nextTier + ".") : null;
+
   const tripLabel = nextTrip?.title ? String(nextTrip.title) : "Viaje";
   const tripCode = nextTrip?.code ? String(nextTrip.code) : "";
   const tripContext = tripCode ? `${tripLabel} (${tripCode})` : tripLabel;
@@ -1461,20 +1511,33 @@ function DashboardView({ data }) {
           )}
         </section>
 
-        <section className="cp-card cp-dash-card cp-dash-span-6">
-          <div className="cp-dash-head">
-            <div className="cp-card-title">Tus Mulligans</div>
-            <span className="cp-pill cp-dash-pill">{levelLabel}</span>
+        
+<section className={"casanova-mulligans-card " + tierClass}>
+          <div className="casanova-mulligans-card__top">
+            <div className="casanova-mulligans-card__title">Tus Mulligans</div>
+            <div className="casanova-mulligans-card__tier">
+              <span className="casanova-mulligans-badge">{levelLabel}</span>
+            </div>
           </div>
-          <div className="cp-dash-mull-points">{points.toLocaleString("es-ES")}</div>
-          <div className="cp-dash-meta">
-            Gasto acumulado: {typeof mull?.spend === "number" ? euro(mull.spend) : "—"}
+
+          <div className="casanova-mulligans-card__big">{points.toLocaleString("es-ES")}</div>
+
+          <div className="casanova-mulligans-card__meta">
+            Gasto acumulado: {typeof mull?.spend === "number" ? euro(mull.spend) : "—"} · Ratio actual: {multLabel ? multLabel : "—"}
           </div>
-          {lastSyncLabel ? <div className="cp-dash-meta">Última actualización: {lastSyncLabel}</div> : null}
-          <button className="cp-btn cp-btn--ghost" onClick={() => setParam("view", "mulligans")}>
+
+          <div className="casanova-progress">
+            <span className="casanova-progress__bar" style={{ width: progressPct + "%" }} />
+          </div>
+
+          {hintText ? <div className="casanova-mulligans-card__hint">{hintText}</div> : null}
+          {lastSyncLabel ? <div className="casanova-mulligans-updated">Última actualización: {lastSyncLabel}</div> : null}
+
+          <button className="cp-btn cp-btn--ghost" style={{ marginTop: 12 }} onClick={() => setParam("view", "mulligans")}>
             Ver movimientos
           </button>
         </section>
+
       </div>
     </div>
   );
@@ -1499,7 +1562,7 @@ function App() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  async function loadDashboard() {
+  async function loadDashboard(refresh = false) {
     const hadData = !!dashboard;
     try {
       if (hadData) setIsRefreshing(true);
@@ -1574,7 +1637,7 @@ function App() {
     <div className="cp-app">
       <Sidebar view={route.view} unread={unreadCount} />
       <main className="cp-main">
-        <Topbar title={title} chip={chip} onRefresh={loadDashboard} isRefreshing={isRefreshing} />
+        <Topbar title={title} chip={chip} onRefresh={() => loadDashboard(true)} isRefreshing={isRefreshing} />
 
         {loadingDash && !dashboard ? (
           <div className="cp-content">
