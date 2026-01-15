@@ -124,3 +124,27 @@ function casanova_cache_remember(string $key, int $ttl, callable $fn) {
 
   return $value;
 }
+
+/**
+ * Invalidaciร caches relevantes para un cliente/expediente tras pagos.
+ */
+function casanova_invalidate_customer_cache(int $user_id, int $idCliente, int $idExpediente = 0): void {
+  if (function_exists('casanova_cache_buster_bump')) {
+    casanova_cache_buster_bump();
+  }
+
+  if ($idCliente > 0) {
+    delete_transient('casanova_dash_v1_' . $idCliente);
+    delete_transient('casanova_dashboard_' . $idCliente);
+  }
+
+  if ($user_id > 0) {
+    delete_transient('casanova_profile_' . $user_id);
+  }
+
+  if ($idExpediente > 0) {
+    delete_transient('casanova_pasajeros_expediente_' . $idExpediente);
+  }
+
+  do_action('casanova_customer_cache_invalidated', $user_id, $idCliente, $idExpediente);
+}

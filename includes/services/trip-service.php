@@ -442,6 +442,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     $calc = is_array($ctx['calc'] ?? null) ? $ctx['calc'] : [];
     $is_paid = !empty($ctx['expediente_pagado']) || !empty($calc['expediente_pagado']);
     $mulligans_used = (int)($ctx['mulligans_used'] ?? 0);
+    $payment_options = is_array($ctx['payment_options'] ?? null) ? $ctx['payment_options'] : null;
 
     return [
       'currency' => $ctx['currency'] ?? 'EUR',
@@ -451,6 +452,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       'history' => $history,
       'is_paid' => $is_paid,
       'mulligans_used' => $mulligans_used,
+      'payment_options' => $payment_options,
       'can_pay' => (bool) ($ctx['can_pay'] ?? false),
       'pay_url' => $ctx['pay_url'] ?? null,
       'actions' => [

@@ -93,6 +93,9 @@ function casanova_job_reconcile_payment(int $intent_id): void {
       ]),
     ]);
 
+    if (function_exists('casanova_invalidate_customer_cache')) {
+      casanova_invalidate_customer_cache((int)$intent->user_id, (int)$intent->id_cliente, (int)$intent->id_expediente);
+    }
     do_action('casanova_payment_reconciled', $intent_id);
     error_log('[CASANOVA][RECON] END reconciled intent_id=' . $intent_id);
     return;

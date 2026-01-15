@@ -47,6 +47,9 @@ function readParams() {
     expediente: p.get("expediente"),
     tab: p.get("tab") || "summary",
     mock: p.get("mock") === "1",
+    payStatus: p.get("pay_status") || "",
+    payment: p.get("payment") || "",
+    refresh: p.get("refresh") === "1",
   };
 }
 
@@ -476,6 +479,15 @@ function PaymentActions({ expediente, payments, mock }) {
   const actions = payments?.actions ?? {};
   const deposit = actions.deposit ?? { allowed: false, amount: 0 };
   const balance = actions.balance ?? { allowed: false, amount: 0 };
+  const options = payments?.payment_options ?? null;
+  const depositAllowed =
+    typeof options?.can_pay_deposit === "boolean" ? options.can_pay_deposit : deposit.allowed;
+  const depositAmount =
+    typeof options?.deposit_amount === "number" ? options.deposit_amount : deposit.amount;
+  const balanceAllowed =
+    typeof options?.can_pay_full === "boolean" ? options.can_pay_full : balance.allowed;
+  const balanceAmount =
+    typeof options?.pending_amount === "number" ? options.pending_amount : balance.amount;
 
   const startIntent = async (type) => {
     setState({ loading: type, error: null });
@@ -502,13 +514,13 @@ function PaymentActions({ expediente, payments, mock }) {
     }
   };
 
-  const hasActions = deposit.allowed || balance.allowed;
+  const hasActions = depositAllowed || balanceAllowed;
   const currency = payments?.currency || "EUR";
 
   return (
     <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-        {deposit.allowed ? (
+        {depositAllowed ? (
           <button
             className="cp-btn primary"
             style={{ whiteSpace: "nowrap" }}
@@ -517,11 +529,11 @@ function PaymentActions({ expediente, payments, mock }) {
           >
             {state.loading === "deposit"
               ? "Redirigiendo..."
-              : `Pagar depósito (${euro(deposit.amount, currency)})`}
+              : `Pagar depósito (${euro(depositAmount, currency)})`}
           </button>
         ) : null}
 
-        {balance.allowed ? (
+        {balanceAllowed ? (
           <button
             className="cp-btn primary"
             style={{ whiteSpace: "nowrap" }}
@@ -530,7 +542,7 @@ function PaymentActions({ expediente, payments, mock }) {
           >
             {state.loading === "balance"
               ? "Redirigiendo..."
-              : `Pagar pendiente (${euro(balance.amount, currency)})`}
+              : `Pagar pendiente (${euro(balanceAmount, currency)})`}
           </button>
         ) : null}
 
@@ -843,6 +855,15 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
         setErr(null);
         const params = new URLSearchParams();
         if (mock) params.set("mock", "1");
+        const refreshFlag = (() => {
+          const urlParams = new URLSearchParams(window.location.search);
+          return (
+            urlParams.get("pay_status") === "checking" ||
+            urlParams.get("payment") === "success" ||
+            urlParams.get("refresh") === "1"
+          );
+        })();
+        if (refreshFlag) params.set("refresh", "1");
         const qs = params.toString() ? `?${params.toString()}` : "";
         const d = await api(`/trip/${encodeURIComponent(String(expediente))}${qs}`);
         if (!alive) return;
@@ -1590,6 +1611,13 @@ function App() {
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.mock]);
+
+  useEffect(() => {
+    if (route.payStatus === "checking" || route.payment === "success" || route.refresh) {
+      loadDashboard(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.payStatus, route.payment, route.refresh]);
 
   useEffect(() => {
     const items = Array.isArray(inbox?.items) ? inbox.items : [];

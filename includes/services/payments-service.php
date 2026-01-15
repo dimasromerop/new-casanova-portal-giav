@@ -67,6 +67,24 @@ class Casanova_Payments_Service {
 
     if ($deposit_amount < 0) $deposit_amount = 0;
 
+    $deadline_iso = null;
+    if (function_exists('casanova_payments_min_fecha_limite')) {
+      $deadline = casanova_payments_min_fecha_limite($reservas);
+      if ($deadline instanceof DateTimeInterface) {
+        $deadline_iso = $deadline->format('Y-m-d');
+      }
+    }
+
+    $can_pay_full = $pending > 0.01;
+    $payment_options = [
+      'can_pay_deposit' => (bool) $deposit_effective,
+      'deposit_deadline' => $deadline_iso,
+      'can_pay_full' => (bool) $can_pay_full,
+      'recommended' => $deposit_effective ? 'deposit' : ($can_pay_full ? 'full' : null),
+      'deposit_amount' => round($deposit_amount, 2),
+      'pending_amount' => round($pending, 2),
+    ];
+
     if (!function_exists('casanova_portal_pay_expediente_url')) {
       $pay_url = add_query_arg([
         'action' => 'casanova_pay_expediente',
@@ -92,14 +110,15 @@ class Casanova_Payments_Service {
       'history' => self::fetch_cobros_history($idExpediente, $idCliente),
       'expediente_pagado' => $is_paid,
       'mulligans_used' => casanova_mulligans_used_for_expediente($idExpediente, $idCliente),
+      'payment_options' => $payment_options,
       'actions' => [
         'deposit' => [
-          'allowed' => (bool) $deposit_effective,
-          'amount' => round($deposit_amount, 2),
+          'allowed' => (bool) $payment_options['can_pay_deposit'],
+          'amount' => (float) $payment_options['deposit_amount'],
         ],
         'balance' => [
-          'allowed' => $pending > 0.01,
-          'amount' => round($pending, 2),
+          'allowed' => (bool) $payment_options['can_pay_full'],
+          'amount' => (float) $payment_options['pending_amount'],
         ],
       ],
     ];

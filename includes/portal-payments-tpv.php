@@ -89,6 +89,137 @@ if (!function_exists('casanova_payload_merge')) {
   }
 }
 
+if (!function_exists('casanova_payments_try_giav_cobro')) {
+  function casanova_payments_try_giav_cobro($intent, array $params, int $ds_resp): array {
+    $result = [
+      'giav_cobro' => null,
+      'already' => false,
+      'inserted' => false,
+      'should_notify' => false,
+    ];
+
+    if (!is_object($intent)) return $result;
+
+    $payload_arr = is_array($intent->payload ?? null)
+      ? (array)$intent->payload
+      : (json_decode((string)($intent->payload ?? ''), true) ?: []);
+    if (!is_array($payload_arr)) $payload_arr = [];
+
+    $already = isset($payload_arr['giav_cobro']) && is_array($payload_arr['giav_cobro'])
+      && (!empty($payload_arr['giav_cobro']['cobro_id']) || !empty($payload_arr['giav_cobro']['inserted_at']));
+
+    if ($already) {
+      error_log('[CASANOVA][TPV][GIAV] cobro already inserted intent_id=' . (int)$intent->id);
+      $result['giav_cobro'] = $payload_arr['giav_cobro'];
+      $result['already'] = true;
+      return $result;
+    }
+
+    $id_forma_pago = 0;
+    if (defined('CASANOVA_GIAV_IDFORMAPAGO_REDSYS')) {
+      $id_forma_pago = (int)CASANOVA_GIAV_IDFORMAPAGO_REDSYS;
+    }
+    if ($id_forma_pago <= 0) {
+      $id_forma_pago = (int) get_option('casanova_giav_idformapago_redsys', 1027);
+    }
+
+    // Oficina: algunos GIAV requieren idOficina para permitir Cobro_POST (si no, 'No se tiene acceso al registro').
+    $id_oficina = 0;
+    if (defined('CASANOVA_GIAV_IDOFICINA')) {
+      $id_oficina = (int)CASANOVA_GIAV_IDOFICINA;
+    }
+    $id_oficina = (int) apply_filters('casanova_giav_idoficina_for_cobro', $id_oficina, $intent, $params);
+
+    // Notas internas: guardamos huella Redsys sin liarla demasiado
+    $notes = [
+      'source' => 'casanova-portal-giav',
+      'token' => (string)$intent->token,
+      'order' => (string)($params['Ds_Order'] ?? ''),
+      'auth_code' => (string)($params['Ds_AuthorisationCode'] ?? ''),
+      'merchant_identifier' => (string)($params['Ds_Merchant_Identifier'] ?? ''),
+      'card_country' => (string)($params['Ds_Card_Country'] ?? ''),
+      'response' => (string)$ds_resp,
+    ];
+
+    $giav_params = [
+      'idFormaPago' => $id_forma_pago,
+      'idOficina' => ($id_oficina > 0 ? (int)$id_oficina : null),
+      'idExpediente' => (int)$intent->id_expediente,
+      'idCliente' => (int)$intent->id_cliente,
+      'idRelacionPasajeroReserva' => null,
+      'idTipoOperacion' => 'Cobro',
+      'importe' => (double)$intent->amount,
+      'fechaCobro' => current_time('Y-m-d'),
+      'concepto' => 'Pago Redsys ' . (string)($intent->order_redsys ?? ''),
+      'documento' => (string)($params['Ds_AuthorisationCode'] ?? ($params['Ds_Merchant_Identifier'] ?? '')),
+      'pagador' => (string)($intent->user_id ? ('WP user ' . (int)$intent->user_id) : 'Portal'),
+      'notasInternas' => wp_json_encode($notes),
+      'autocompensar' => true,
+      'idEntityStage' => null,
+      // customDataValues OMITIDO: Key debe ser int y no sabemos los IDs en tu GIAV.
+    ];
+    // Si no tenemos oficina, mejor omitir el campo (algunos GIAV interpretan xsi:nil como 'no autorizado').
+    if ($id_oficina <= 0) {
+      unset($giav_params['idOficina']);
+    }
+    error_log('[CASANOVA][TPV][GIAV] Cobro_POST params idFormaPago=' . (int)$id_forma_pago . ' idOficina=' . (int)$id_oficina);
+
+    if (!function_exists('casanova_giav_call')) {
+      error_log('[CASANOVA][TPV][GIAV] casanova_giav_call missing');
+      $result['giav_cobro'] = [
+        'attempted_at' => current_time('mysql'),
+        'ok' => false,
+        'error' => 'casanova_giav_call_missing',
+      ];
+      return $result;
+    }
+
+    error_log('[CASANOVA][TPV][GIAV] Cobro_POST attempt intent_id=' . (int)$intent->id . ' exp=' . (int)$intent->id_expediente . ' cliente=' . (int)$intent->id_cliente . ' importe=' . (string)$intent->amount);
+    $res = casanova_giav_call('Cobro_POST', $giav_params);
+
+    if (is_wp_error($res)) {
+      error_log('[CASANOVA][TPV][GIAV] Cobro_POST ERROR: ' . $res->get_error_message());
+      $result['giav_cobro'] = [
+        'attempted_at' => current_time('mysql'),
+        'ok' => false,
+        'error' => $res->get_error_message(),
+      ];
+      return $result;
+    }
+
+    // SoapClient suele devolver objeto con propiedad Cobro_POSTResult
+    $cobro_id = 0;
+    if (is_object($res) && isset($res->Cobro_POSTResult)) {
+      $cobro_id = (int)$res->Cobro_POSTResult;
+    } elseif (is_numeric($res)) {
+      $cobro_id = (int)$res;
+    }
+
+    if ($cobro_id > 0) {
+      error_log('[CASANOVA][TPV][GIAV] Cobro_POST OK cobro_id=' . $cobro_id . ' intent_id=' . (int)$intent->id);
+      $result['giav_cobro'] = [
+        'attempted_at' => current_time('mysql'),
+        'inserted_at' => current_time('mysql'),
+        'ok' => true,
+        'cobro_id' => $cobro_id,
+      ];
+      $result['inserted'] = true;
+      $result['should_notify'] = true;
+      return $result;
+    }
+
+    // Respuesta rara: lo registramos para debug, pero no marcamos como insertado.
+    error_log('[CASANOVA][TPV][GIAV] Cobro_POST unexpected response intent_id=' . (int)$intent->id . ' res=' . print_r($res, true));
+    $result['giav_cobro'] = [
+      'attempted_at' => current_time('mysql'),
+      'ok' => false,
+      'error' => 'unexpected_response',
+      'raw' => is_scalar($res) ? (string)$res : null,
+    ];
+    return $result;
+  }
+}
+
 /**
  * ==========================
  * RETURN (cliente vuelve)
@@ -198,17 +329,34 @@ if (!wp_next_scheduled('casanova_job_reconcile_payment', [(int)$intent->id])) {
 
   error_log('[CASANOVA][TPV][RETURN] intent=' . $intent->id . ' valid_sig=' . ($is_valid ? '1' : '0') . ' ds=' . $ds_resp);
 
+  $giav_result = [];
+  if ($ok) {
+    $giav_result = casanova_payments_try_giav_cobro($intent, $params, $ds_resp);
+  }
+
+  $merge_payload = [
+    'redsys_return' => [
+      'valid_signature' => $is_valid,
+      'ds_response' => $ds_resp,
+      'params' => $params,
+    ],
+    'time' => current_time('mysql'),
+  ];
+  if (!empty($giav_result['giav_cobro'])) {
+    $merge_payload['giav_cobro'] = $giav_result['giav_cobro'];
+  }
+
   casanova_payment_intent_update((int)$intent->id, [
     'status' => $ok ? 'returned_ok' : 'returned_ko',
-    'payload' => casanova_payload_merge($intent->payload ?? [], [
-      'redsys_return' => [
-        'valid_signature' => $is_valid,
-        'ds_response' => $ds_resp,
-        'params' => $params,
-      ],
-      'time' => current_time('mysql'),
-    ]),
+    'payload' => casanova_payload_merge($intent->payload ?? [], $merge_payload),
   ]);
+
+  if (!empty($giav_result['should_notify'])) {
+    do_action('casanova_payment_cobro_recorded', (int)$intent->id);
+  }
+  if (!empty($giav_result['inserted']) && function_exists('casanova_invalidate_customer_cache')) {
+    casanova_invalidate_customer_cache((int)$intent->user_id, (int)$intent->id_cliente, (int)$intent->id_expediente);
+  }
 
   if (!wp_next_scheduled('casanova_job_reconcile_payment', [(int)$intent->id])) {
     wp_schedule_single_event(time() + 15, 'casanova_job_reconcile_payment', [(int)$intent->id]);
@@ -302,115 +450,11 @@ function casanova_handle_tpv_notify(): void {
   // Puente Redsys -> GIAV: insertar Cobro_POST de forma idempotente
   // ==============================================================
   $extra_payload = [];
+  $giav_result = [];
   if ($is_valid && $bank_ok) {
-    $payload_arr = is_array($intent->payload ?? null)
-      ? (array)$intent->payload
-      : (json_decode((string)($intent->payload ?? ''), true) ?: []);
-    if (!is_array($payload_arr)) $payload_arr = [];
-
-    $already = isset($payload_arr['giav_cobro']) && is_array($payload_arr['giav_cobro'])
-      && (!empty($payload_arr['giav_cobro']['cobro_id']) || !empty($payload_arr['giav_cobro']['inserted_at']));
-
-    if ($already) {
-      error_log('[CASANOVA][TPV][GIAV] cobro already inserted intent_id=' . (int)$intent->id);
-    } else {
-      $id_forma_pago = 0;
-      if (defined('CASANOVA_GIAV_IDFORMAPAGO_REDSYS')) {
-        $id_forma_pago = (int)CASANOVA_GIAV_IDFORMAPAGO_REDSYS;
-      }
-      if ($id_forma_pago <= 0) {
-        $id_forma_pago = (int) get_option('casanova_giav_idformapago_redsys', 1027);
-      }
-
-      // Oficina: algunos GIAV requieren idOficina para permitir Cobro_POST (si no, 'No se tiene acceso al registro').
-      $id_oficina = 0;
-      if (defined('CASANOVA_GIAV_IDOFICINA')) {
-        $id_oficina = (int)CASANOVA_GIAV_IDOFICINA;
-      }
-      $id_oficina = (int) apply_filters('casanova_giav_idoficina_for_cobro', $id_oficina, $intent, $params);
-
-      // Notas internas: guardamos huella Redsys sin liarla demasiado
-      $notes = [
-        'source' => 'casanova-portal-giav',
-        'token' => (string)$intent->token,
-        'order' => (string)($params['Ds_Order'] ?? ''),
-        'auth_code' => (string)($params['Ds_AuthorisationCode'] ?? ''),
-        'merchant_identifier' => (string)($params['Ds_Merchant_Identifier'] ?? ''),
-        'card_country' => (string)($params['Ds_Card_Country'] ?? ''),
-        'response' => (string)$ds_resp,
-      ];
-
-      $giav_params = [
-        'idFormaPago' => $id_forma_pago,
-        'idOficina' => ($id_oficina > 0 ? (int)$id_oficina : null),
-        'idExpediente' => (int)$intent->id_expediente,
-        'idCliente' => (int)$intent->id_cliente,
-        'idRelacionPasajeroReserva' => null,
-        'idTipoOperacion' => 'Cobro',
-        'importe' => (double)$intent->amount,
-        'fechaCobro' => current_time('Y-m-d'),
-        'concepto' => 'Pago Redsys ' . (string)($intent->order_redsys ?? ''),
-        'documento' => (string)($params['Ds_AuthorisationCode'] ?? ($params['Ds_Merchant_Identifier'] ?? '')),
-        'pagador' => (string)($intent->user_id ? ('WP user ' . (int)$intent->user_id) : 'Portal'),
-        'notasInternas' => wp_json_encode($notes),
-        'autocompensar' => true,
-        'idEntityStage' => null,
-        // customDataValues OMITIDO: Key debe ser int y no sabemos los IDs en tu GIAV.
-      ];
-      // Si no tenemos oficina, mejor omitir el campo (algunos GIAV interpretan xsi:nil como 'no autorizado').
-      if ($id_oficina <= 0) {
-        unset($giav_params['idOficina']);
-      }
-      error_log('[CASANOVA][TPV][GIAV] Cobro_POST params idFormaPago=' . (int)$id_forma_pago . ' idOficina=' . (int)$id_oficina);
-
-
-      if (!function_exists('casanova_giav_call')) {
-        error_log('[CASANOVA][TPV][GIAV] casanova_giav_call missing');
-        $extra_payload['giav_cobro'] = [
-          'attempted_at' => current_time('mysql'),
-          'ok' => false,
-          'error' => 'casanova_giav_call_missing',
-        ];
-      } else {
-        error_log('[CASANOVA][TPV][GIAV] Cobro_POST attempt intent_id=' . (int)$intent->id . ' exp=' . (int)$intent->id_expediente . ' cliente=' . (int)$intent->id_cliente . ' importe=' . (string)$intent->amount);
-        $res = casanova_giav_call('Cobro_POST', $giav_params);
-
-        if (is_wp_error($res)) {
-          error_log('[CASANOVA][TPV][GIAV] Cobro_POST ERROR: ' . $res->get_error_message());
-          $extra_payload['giav_cobro'] = [
-            'attempted_at' => current_time('mysql'),
-            'ok' => false,
-            'error' => $res->get_error_message(),
-          ];
-        } else {
-          // SoapClient suele devolver objeto con propiedad Cobro_POSTResult
-          $cobro_id = 0;
-          if (is_object($res) && isset($res->Cobro_POSTResult)) {
-            $cobro_id = (int)$res->Cobro_POSTResult;
-          } elseif (is_numeric($res)) {
-            $cobro_id = (int)$res;
-          }
-
-          if ($cobro_id > 0) {
-            error_log('[CASANOVA][TPV][GIAV] Cobro_POST OK cobro_id=' . $cobro_id . ' intent_id=' . (int)$intent->id);
-            $extra_payload['giav_cobro'] = [
-              'attempted_at' => current_time('mysql'),
-              'inserted_at' => current_time('mysql'),
-              'ok' => true,
-              'cobro_id' => $cobro_id,
-            ];
-          } else {
-            // Respuesta rara: lo registramos para debug, pero no marcamos como insertado.
-            error_log('[CASANOVA][TPV][GIAV] Cobro_POST unexpected response intent_id=' . (int)$intent->id . ' res=' . print_r($res, true));
-            $extra_payload['giav_cobro'] = [
-              'attempted_at' => current_time('mysql'),
-              'ok' => false,
-              'error' => 'unexpected_response',
-              'raw' => is_scalar($res) ? (string)$res : null,
-            ];
-          }
-        }
-      }
+    $giav_result = casanova_payments_try_giav_cobro($intent, $params, $ds_resp);
+    if (!empty($giav_result['giav_cobro'])) {
+      $extra_payload['giav_cobro'] = $giav_result['giav_cobro'];
     }
   }
 
@@ -438,8 +482,11 @@ function casanova_handle_tpv_notify(): void {
   ]);
 
   // Si se ha registrado cobro en GIAV, disparar email de confirmación aunque sea pago parcial.
-  if (!empty($merge_payload['giav_cobro']) && !empty($merge_payload['giav_cobro']['ok']) && !empty($merge_payload['giav_cobro']['cobro_id'])) {
+  if (!empty($giav_result['should_notify'])) {
     do_action('casanova_payment_cobro_recorded', (int)$intent->id);
+  }
+  if (!empty($giav_result['inserted']) && function_exists('casanova_invalidate_customer_cache')) {
+    casanova_invalidate_customer_cache((int)$intent->user_id, (int)$intent->id_cliente, (int)$intent->id_expediente);
   }
 
   // Solo agenda reconciliación si tiene sentido (firma válida + banco OK)

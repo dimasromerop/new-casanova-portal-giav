@@ -47,6 +47,11 @@ class Casanova_Trip_Controller {
           'message' => __('Expediente inválido', 'casanova-portal'),
         ], 400);
       }
+      $refresh = (int) $request->get_param('refresh') === 1;
+      if ($refresh && function_exists('casanova_invalidate_customer_cache')) {
+        $idCliente = (int) get_user_meta($user_id, 'casanova_idcliente', true);
+        casanova_invalidate_customer_cache($user_id, $idCliente, $id);
+      }
       $data = Casanova_Trip_Service::get_trip_for_user($user_id, $id, $request);
       if (is_wp_error($data)) {
         return $data;

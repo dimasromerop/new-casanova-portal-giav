@@ -311,11 +311,40 @@ class Casanova_Dashboard_Service {
     if ($pending < 0) $pending = 0;
     $is_paid = !empty($p['expediente_pagado']) || ($pending <= 0.01);
 
+    $deposit_allowed = false;
+    $deposit_amount = 0.0;
+    if ($paid <= 0.01 && function_exists('casanova_payments_is_deposit_allowed')) {
+      $deposit_allowed = casanova_payments_is_deposit_allowed($reservas);
+    }
+    if ($deposit_allowed && function_exists('casanova_payments_calc_deposit_amount')) {
+      $deposit_amount = casanova_payments_calc_deposit_amount($pending, $idExp);
+    }
+    $deposit_effective = $deposit_allowed && ($deposit_amount + 0.01 < $pending);
+
+    $deadline_iso = null;
+    if (function_exists('casanova_payments_min_fecha_limite')) {
+      $deadline = casanova_payments_min_fecha_limite($reservas);
+      if ($deadline instanceof DateTimeInterface) {
+        $deadline_iso = $deadline->format('Y-m-d');
+      }
+    }
+
+    $can_pay_full = $pending > 0.01;
+    $payment_options = [
+      'can_pay_deposit' => (bool) $deposit_effective,
+      'deposit_deadline' => $deadline_iso,
+      'can_pay_full' => (bool) $can_pay_full,
+      'recommended' => $deposit_effective ? 'deposit' : ($can_pay_full ? 'full' : null),
+      'deposit_amount' => round($deposit_amount, 2),
+      'pending_amount' => round($pending, 2),
+    ];
+
     return [
       'total' => $total,
       'paid' => $paid,
       'pending' => $pending,
       'is_paid' => $is_paid,
+      'payment_options' => $payment_options,
     ];
   }
 
