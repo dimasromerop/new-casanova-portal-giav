@@ -332,79 +332,81 @@ function TripsList({ mock, onOpen, dashboard }) {
           </div>
         </div>
 
-        <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
-            <th style={{ width: 120 }}>Expediente</th>
-            <th>Viaje</th>
-            <th style={{ width: 140 }}>Inicio</th>
-            <th style={{ width: 140 }}>Fin</th>
-            <th style={{ width: 120 }}>Estado</th>
-            <th style={{ width: 110, textAlign: "right" }}>Total</th>
-            <th style={{ width: 160 }}>Pagos</th>
-            <th style={{ width: 120 }}>Bonos</th>
-            <th style={{ width: 180 }}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredTrips.map((t) => {
-            const r = normalizeTripDates(t);
-            const payments = t?.payments || null;
-            const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
-            const paidAmount = typeof payments?.paid === "number" ? payments.paid : Number.NaN;
-            const pendingCandidate = typeof payments?.pending === "number" ? payments.pending : Number.NaN;
-            const pendingAmount = Number.isFinite(pendingCandidate)
-              ? pendingCandidate
-              : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
-                  ? Math.max(0, totalAmount - paidAmount)
-                  : Number.NaN);
-            const hasPayments = Number.isFinite(totalAmount);
-            const totalLabel = hasPayments ? euro(totalAmount) : "—";
-            const pendingLabel = Number.isFinite(pendingAmount) ? euro(pendingAmount) : "—";
-            const paymentsLabel = hasPayments
-              ? (pendingAmount <= 0.01 ? "Pagado" : `Pendiente: ${pendingLabel}`)
-              : "—";
-            const bonusesAvailable = typeof t?.bonuses?.available === "boolean" ? t.bonuses.available : null;
-            const bonusesLabel = bonusesAvailable === null
-              ? "—"
-              : (bonusesAvailable ? "Disponibles" : "No disponibles");
-            return (
-              <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td>{t.code || `#${t.id}`}</td>
-                <td>
-                  <div style={{ fontWeight: 600 }}>{t.title}</div>
-                  <div style={{ fontSize: 12, opacity: 0.75 }}>{t.code ? `ID ${t.id}` : `Expediente ${t.id}`}</div>
-                </td>
-                <td>{formatDateES(r.start)}</td>
-                <td>{formatDateES(r.end)}</td>
-                <td>{t.status || "-"}</td>
-                <td style={{ textAlign: "right" }}>{totalLabel}</td>
-                <td>{paymentsLabel}</td>
-                <td>{bonusesLabel}</td>
-                <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
-                    Ver detalle
-                  </button>
-                  <button
-                    className="cp-btn"
-                    style={{ whiteSpace: "nowrap" }}
-                    onClick={() => onOpen(t.id, "payments")}
-                  >
-                    Pagar
-                  </button>
-                </td>
+        <div className="cp-table-wrap" style={{ marginTop: 14 }}>
+          <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
+                <th style={{ width: 120 }}>Expediente</th>
+                <th>Viaje</th>
+                <th style={{ width: 140 }}>Inicio</th>
+                <th style={{ width: 140 }}>Fin</th>
+                <th style={{ width: 120 }}>Estado</th>
+                <th style={{ width: 110, textAlign: "right" }}>Total</th>
+                <th style={{ width: 160 }}>Pagos</th>
+                <th style={{ width: 120 }}>Bonos</th>
+                <th style={{ width: 180 }}></th>
               </tr>
-            );
-          })}
-          {filteredTrips.length === 0 ? (
-            <tr>
-              <td colSpan={9} style={{ padding: 18, opacity: 0.8 }}>
-                No hay viajes disponibles ahora mismo.
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {filteredTrips.map((t) => {
+                const r = normalizeTripDates(t);
+                const payments = t?.payments || null;
+                const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
+                const paidAmount = typeof payments?.paid === "number" ? payments.paid : Number.NaN;
+                const pendingCandidate = typeof payments?.pending === "number" ? payments.pending : Number.NaN;
+                const pendingAmount = Number.isFinite(pendingCandidate)
+                  ? pendingCandidate
+                  : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
+                      ? Math.max(0, totalAmount - paidAmount)
+                      : Number.NaN);
+                const hasPayments = Number.isFinite(totalAmount);
+                const totalLabel = hasPayments ? euro(totalAmount) : "-";
+                const pendingLabel = Number.isFinite(pendingAmount) ? euro(pendingAmount) : "-";
+                const paymentsLabel = hasPayments
+                  ? (pendingAmount <= 0.01 ? "Pagado" : `Pendiente: ${pendingLabel}`)
+                  : "-";
+                const bonusesAvailable = typeof t?.bonuses?.available === "boolean" ? t.bonuses.available : null;
+                const bonusesLabel = bonusesAvailable === null
+                  ? "-"
+                  : (bonusesAvailable ? "Disponibles" : "No disponibles");
+                return (
+                  <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
+                    <td>{t.code || `#${t.id}`}</td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{t.title}</div>
+                      <div style={{ fontSize: 12, opacity: 0.75 }}>{t.code ? `ID ${t.id}` : `Expediente ${t.id}`}</div>
+                    </td>
+                    <td>{formatDateES(r.start)}</td>
+                    <td>{formatDateES(r.end)}</td>
+                    <td>{t.status || "-"}</td>
+                    <td style={{ textAlign: "right" }}>{totalLabel}</td>
+                    <td>{paymentsLabel}</td>
+                    <td>{bonusesLabel}</td>
+                    <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                      <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
+                        Ver detalle
+                      </button>
+                      <button
+                        className="cp-btn"
+                        style={{ whiteSpace: "nowrap" }}
+                        onClick={() => onOpen(t.id, "payments")}
+                      >
+                        Pagar
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredTrips.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ padding: 18, opacity: 0.8 }}>
+                    No hay viajes disponibles ahora mismo.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
 
           </div>
