@@ -280,13 +280,14 @@ if (!wp_next_scheduled('casanova_job_reconcile_payment', [(int)$intent->id])) {
       wp_safe_redirect(add_query_arg([
         'expediente' => (int)$intent->id_expediente,
         'pay_status' => 'checking',
+        'payment' => 'success',
       ], (function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/portal-app/'))));
       exit;
     }
   }
 
   // si no hay token o no existe intent, KO genérico
-  wp_safe_redirect(add_query_arg(['pay_status' => 'ko'], (function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/portal-app/'))));
+  wp_safe_redirect(add_query_arg(['pay_status' => 'ko', 'payment' => 'failed'], (function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/portal-app/'))));
   exit;
 }
 
@@ -297,13 +298,13 @@ if (!wp_next_scheduled('casanova_job_reconcile_payment', [(int)$intent->id])) {
   error_log('[CASANOVA][TPV][RETURN] token=' . $token);
 
   if ($token === '' || !function_exists('casanova_payment_intent_get_by_token')) {
-    wp_safe_redirect(add_query_arg(['pay_status' => 'ko'], (function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/portal-app/'))));
+    wp_safe_redirect(add_query_arg(['pay_status' => 'ko', 'payment' => 'failed'], (function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/portal-app/'))));
     exit;
   }
 
   $intent = casanova_payment_intent_get_by_token($token);
   if (!$intent) {
-    wp_safe_redirect(add_query_arg(['pay_status' => 'ko'], (function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/portal-app/'))));
+    wp_safe_redirect(add_query_arg(['pay_status' => 'ko', 'payment' => 'failed'], (function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/portal-app/'))));
     exit;
   }
 
@@ -365,6 +366,7 @@ if (!wp_next_scheduled('casanova_job_reconcile_payment', [(int)$intent->id])) {
   wp_safe_redirect(add_query_arg([
     'expediente' => (int)$intent->id_expediente,
     'pay_status' => $ok ? 'checking' : 'ko',
+    'payment' => $ok ? 'success' : 'failed',
   ], (function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/portal-app/'))));
   exit;
 }
