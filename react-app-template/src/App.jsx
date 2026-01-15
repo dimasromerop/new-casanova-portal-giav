@@ -43,7 +43,7 @@ function api(path, options = {}) {
 function readParams() {
   const p = new URLSearchParams(window.location.search);
   return {
-    view: p.get("view") || "trips",
+    view: p.get("view") || "dashboard",
     expediente: p.get("expediente"),
     tab: p.get("tab") || "summary",
     mock: p.get("mock") === "1",
@@ -214,6 +214,105 @@ function formatMsgDate(d) {
   return dt.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+const ICON_PROPS = {
+  width: 20,
+  height: 20,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  focusable: "false",
+};
+
+function IconGrid() {
+  return (
+    <svg {...ICON_PROPS} aria-hidden="true">
+      <rect x={3} y={3} width={7.5} height={7.5} rx={1.5} />
+      <rect x={13.5} y={3} width={7.5} height={7.5} rx={1.5} />
+      <rect x={3} y={13.5} width={7.5} height={7.5} rx={1.5} />
+      <rect x={13.5} y={13.5} width={7.5} height={7.5} rx={1.5} />
+    </svg>
+  );
+}
+
+function IconMapPin() {
+  return (
+    <svg {...ICON_PROPS} aria-hidden="true">
+      <path d="M12 3c-3.866 0-7 3.134-7 7 0 4.25 7 11 7 11s7-6.75 7-11c0-3.866-3.134-7-7-7z" />
+      <circle cx={12} cy={10} r={2.2} />
+    </svg>
+  );
+}
+
+function IconChatBubble() {
+  return (
+    <svg {...ICON_PROPS} aria-hidden="true">
+      <path d="M5 6h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H8l-4 4V8a2 2 0 0 1 2-2z" />
+    </svg>
+  );
+}
+
+function IconStarBadge() {
+  return (
+    <svg {...ICON_PROPS} aria-hidden="true">
+      <path d="M12 4l1.91 3.86 4.27.62-3.09 3.01.73 4.25-3.82-2.01-3.82 2.01.73-4.25-3.09-3.01 4.27-.62z" />
+    </svg>
+  );
+}
+
+function IconClipboardList() {
+  return (
+    <svg {...ICON_PROPS} aria-hidden="true">
+      <path d="M8 5h8a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />
+      <path d="M9 9h6" />
+      <path d="M9 13l2 2 4-4" />
+    </svg>
+  );
+}
+
+function IconWallet() {
+  return (
+    <svg {...ICON_PROPS} aria-hidden="true">
+      <path d="M5 8h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" />
+      <path d="M16 12h2" />
+      <circle cx={17} cy={11.5} r={1} fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+const NAV_ITEMS = [
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    view: "dashboard",
+    icon: IconGrid,
+    isActive: (view) => view === "dashboard",
+  },
+  {
+    key: "trips",
+    label: "Viajes",
+    view: "trips",
+    icon: IconMapPin,
+    isActive: (view) => view === "trips" || view === "trip",
+  },
+  {
+    key: "inbox",
+    label: "Mensajes",
+    view: "inbox",
+    icon: IconChatBubble,
+    isActive: (view) => view === "inbox",
+  },
+  {
+    key: "mulligans",
+    label: "Mulligans",
+    view: "mulligans",
+    icon: IconStarBadge,
+    isActive: (view) => view === "mulligans",
+  },
+];
+
 /* ===== Shell ===== */
 function Sidebar({ view, unread = 0 }) {
   return (
@@ -236,35 +335,28 @@ function Sidebar({ view, unread = 0 }) {
       </div>
 
       <nav className="cp-nav">
-        <button
-          className={`cp-nav-btn ${view === "dashboard" ? "is-active" : ""}`}
-          onClick={() => setParam("view", "dashboard")}
-        >
-          Dashboard
-        </button>
-
-        <button
-          className={`cp-nav-btn ${view === "trips" || view === "trip" ? "is-active" : ""}`}
-          onClick={() => setParam("view", "trips")}
-        >
-          Viajes
-        </button>
-
-        <button
-          className={`cp-nav-btn ${view === "inbox" ? "is-active" : ""}`}
-          onClick={() => setParam("view", "inbox")}
-        >
-          <span>Mensajes</span>
-          {/* Badge solo fuera de inbox/detalle-mensajes para no molestar */}
-          {view !== "inbox" && unread > 0 ? <span className="cp-badge">{unread}</span> : null}
-        </button>
-
-        <button
-          className={`cp-nav-btn ${view === "mulligans" ? "is-active" : ""}`}
-          onClick={() => setParam("view", "mulligans")}
-        >
-          Mulligans
-        </button>
+        {NAV_ITEMS.map((item) => {
+          const IconComponent = item.icon;
+          const active = item.isActive(view);
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className={`cp-nav-btn ${active ? "is-active" : ""}`}
+              onClick={() => setParam("view", item.view)}
+            >
+              <span className="cp-nav-label">
+                <span className="cp-nav-icon">
+                  <IconComponent />
+                </span>
+                <span>{item.label}</span>
+              </span>
+              {item.key === "inbox" && view !== "inbox" && unread > 0 ? (
+                <span className="cp-badge">{unread}</span>
+              ) : null}
+            </button>
+          );
+        })}
       </nav>
 
       <div style={{ marginTop: "auto", padding: 10, color: "var(--muted)", fontSize: 12 }}>
@@ -1312,6 +1404,17 @@ function MulligansView({ data }) {
 
 
 
+function CardTitleWithIcon({ icon: Icon, children }) {
+  return (
+    <div className="cp-card-title cp-card-title--with-icon">
+      <span className="cp-card-title-icon" aria-hidden="true">
+        <Icon />
+      </span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
 function DashboardView({ data }) {
   const nextTrip = data?.next_trip || null;
   const payments = data?.payments || null;
@@ -1421,7 +1524,7 @@ function DashboardView({ data }) {
       <div className="cp-grid cp-dash-grid">
         <section className="cp-card cp-dash-card cp-dash-span-8">
           <div className="cp-dash-head">
-            <div className="cp-card-title">Próximo viaje</div>
+            <CardTitleWithIcon icon={IconMapPin}>Próximo viaje</CardTitleWithIcon>
             <div className="cp-dash-head-right">
               {daysLeftLabel ? <span className="cp-pill cp-dash-pill">{daysLeftLabel}</span> : null}
               {nextTrip?.status ? <span className="cp-pill cp-dash-pill">{nextTrip.status}</span> : null}
@@ -1471,7 +1574,7 @@ function DashboardView({ data }) {
 
         <section className="cp-card cp-dash-card cp-dash-span-4">
           <div className="cp-dash-head">
-            <div className="cp-card-title">Qué necesitas hacer ahora</div>
+            <CardTitleWithIcon icon={IconClipboardList}>Qué necesitas hacer ahora</CardTitleWithIcon>
             <span className={`cp-pill cp-dash-pill ${actionPillClass}`}>{actionBadge}</span>
           </div>
           {actionTripLabel ? (
@@ -1498,7 +1601,7 @@ function DashboardView({ data }) {
 
         <section className="cp-card cp-dash-card cp-dash-span-4">
           <div className="cp-dash-head">
-            <div className="cp-card-title">Estado de pagos</div>
+            <CardTitleWithIcon icon={IconWallet}>Estado de pagos</CardTitleWithIcon>
             {hasPaymentsData ? (
               <span className={`cp-pill cp-dash-pill ${isPaid ? "is-ok" : "is-warn"}`}>
                 {isPaid ? "Todo pagado" : "Pendiente"}
@@ -1535,9 +1638,14 @@ function DashboardView({ data }) {
         </section>
 
         
-<section className={"casanova-mulligans-card " + tierClass}>
+        <section className={"casanova-mulligans-card " + tierClass}>
           <div className="casanova-mulligans-card__top">
-            <div className="casanova-mulligans-card__title">Tus Mulligans</div>
+            <div className="casanova-mulligans-card__title cp-card-title--with-icon">
+              <span className="cp-card-title-icon" aria-hidden="true">
+                <IconStarBadge />
+              </span>
+              <span>Tus Mulligans</span>
+            </div>
             <div className="casanova-mulligans-card__tier">
               <span className="casanova-mulligans-badge">{levelLabel}</span>
             </div>
