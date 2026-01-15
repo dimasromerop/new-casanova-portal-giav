@@ -65,6 +65,9 @@ class Casanova_Dashboard_Service {
     // 5) Mensajes (sobre próximo viaje)
     $messages = self::get_messages_summary($user_id, $idCliente, $next);
 
+    // 6) Próxima acción (prioriza siguiente viaje si el actual está al día)
+    $next_action = self::get_next_action($idCliente, $next, $trips, $payments);
+
     $data = [
       'mulligans' => [
         'points'    => $m_points,
@@ -80,6 +83,7 @@ class Casanova_Dashboard_Service {
       'next_trip' => $next,
       'payments' => $payments,
       'messages' => $messages,
+      'next_action' => $next_action,
     ];
 
     if ($idCliente > 0) {
@@ -152,6 +156,45 @@ class Casanova_Dashboard_Service {
     $base = function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/');
     $url = $idExp ? add_query_arg(['view' => 'expedientes', 'expediente' => $idExp], $base) : '';
 
+    $days_left = 0;
+    if (isset($row['date']) && $row['date'] instanceof DateTimeImmutable) {
+      $days_left = (int) $today->diff($row['date'])->format('%a');
+    }
+
+    $ics_url = '';
+    if ($idExp > 0) {
+      if (function_exists('casanova_portal_ics_url')) {
+        $ics_url = casanova_portal_ics_url($idExp);
+      } else {
+        $ics_url = add_query_arg([
+          'casanova_action' => 'download_ics',
+          'expediente'      => (int) $idExp,
+          '_wpnonce'        => wp_create_nonce('casanova_download_ics_' . (int)$idExp),
+        ], $base);
+      }
+    }
+
+    $payments = [];
+    $bonuses = [];
+    if ($idExp > 0) {
+      $calc = self::get_payments_for_expediente($idCliente, $idExp);
+      if (!empty($calc)) {
+        $total = (float) ($calc['total'] ?? 0);
+        $paid = (float) ($calc['paid'] ?? 0);
+        $pending = (float) ($calc['pending'] ?? 0);
+        $is_paid = !empty($calc['is_paid']) || ($pending <= 0.01);
+        $payments = [
+          'total' => $total,
+          'paid' => $paid,
+          'pending' => $pending,
+          'is_paid' => $is_paid,
+        ];
+        $bonuses = [
+          'available' => $is_paid,
+        ];
+      }
+    }
+
       $out[] = [
         'id'         => $idExp,
         'title'      => $title,
@@ -159,6 +202,10 @@ class Casanova_Dashboard_Service {
         'status'     => $status,
         'date_range' => $date_range,
         'url'        => $url,
+        'days_left'  => $days_left,
+        'calendar_url' => $ics_url,
+        'payments'   => $payments,
+        'bonuses'    => $bonuses,
         '_raw'       => [
           'FechaInicio' => isset($e->FechaInicio) ? (string) $e->FechaInicio : null,
           'FechaFin'    => $fin ? (string) $fin : null,
@@ -183,23 +230,12 @@ class Casanova_Dashboard_Service {
     $idExp = (int) $next_trip['id'];
     if (!$idExp) return [];
 
-    if (!function_exists('casanova_giav_reservas_por_expediente') || !function_exists('casanova_calc_pago_expediente')) {
-      return [];
-    }
+    $calc = self::get_payments_for_expediente($idCliente, $idExp);
+    if (empty($calc)) return [];
 
-    $reservas = casanova_giav_reservas_por_expediente($idExp, $idCliente);
-    if (!is_array($reservas)) {
-      return [];
-    }
-
-    $p = casanova_calc_pago_expediente($idExp, $idCliente, $reservas);
-    if (!is_array($p)) {
-      return [];
-    }
-
-    $total  = (float) ($p['total_objetivo'] ?? 0);
-    $paid   = (float) ($p['pagado_real'] ?? 0);
-    $pending = max(0, $total - $paid);
+    $total = (float) ($calc['total'] ?? 0);
+    $paid = (float) ($calc['paid'] ?? 0);
+    $pending = (float) ($calc['pending'] ?? 0);
 
     $base = function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/');
     $url = add_query_arg(['view' => 'expedientes', 'expediente' => $idExp], $base) . '#pagos';
@@ -210,6 +246,108 @@ class Casanova_Dashboard_Service {
       'pending' => $pending,
       'url'     => $url,
     ];
+  }
+
+  /**
+   * @return array<string,float>
+   */
+  private static function get_payments_for_expediente(int $idCliente, int $idExp): array {
+    if ($idCliente <= 0 || $idExp <= 0) return [];
+    if (!function_exists('casanova_giav_reservas_por_expediente') || !function_exists('casanova_calc_pago_expediente')) {
+      return [];
+    }
+
+    $reservas = casanova_giav_reservas_por_expediente($idExp, $idCliente);
+    if (!is_array($reservas)) return [];
+
+    $p = casanova_calc_pago_expediente($idExp, $idCliente, $reservas);
+    if (!is_array($p)) return [];
+
+    $total = (float) ($p['total_objetivo'] ?? 0);
+    $paid = (float) ($p['pagado'] ?? ($p['pagado_real'] ?? 0));
+    $pending = isset($p['pendiente_real']) ? (float) $p['pendiente_real'] : max(0, $total - $paid);
+    if ($pending < 0) $pending = 0;
+    $is_paid = !empty($p['expediente_pagado']) || ($pending <= 0.01);
+
+    return [
+      'total' => $total,
+      'paid' => $paid,
+      'pending' => $pending,
+      'is_paid' => $is_paid,
+    ];
+  }
+
+  /**
+   * @param array<int,array<string,mixed>> $trips
+   * @param array<string,mixed> $payments
+   * @return array<string,mixed>
+   */
+  private static function get_next_action(int $idCliente, ?array $next_trip, array $trips, array $payments): array {
+    if (!$next_trip || empty($next_trip['id'])) {
+      return [
+        'status' => 'empty',
+        'badge' => __('Info', 'casanova-portal'),
+        'description' => __('No hay viajes próximos para mostrar aquí.', 'casanova-portal'),
+      ];
+    }
+
+    $trip_label = self::format_trip_label($next_trip);
+    $pending = (float) ($payments['pending'] ?? 0);
+    $has_payments = !empty($payments);
+
+    if ($has_payments && $pending > 0.01) {
+      return [
+        'status' => 'pending',
+        'badge' => __('Pendiente', 'casanova-portal'),
+        'description' => sprintf(
+          __('Tienes un pago pendiente de %s.', 'casanova-portal'),
+          casanova_fmt_money($pending)
+        ),
+        'expediente_id' => (int) $next_trip['id'],
+        'trip_label' => $trip_label,
+      ];
+    }
+
+    $note = null;
+    if (count($trips) >= 2) {
+      $second = $trips[1];
+      $second_id = (int) ($second['id'] ?? 0);
+      if ($second_id > 0 && $second_id !== (int) $next_trip['id']) {
+        $calc = self::get_payments_for_expediente($idCliente, $second_id);
+        if (!empty($calc)) {
+          $pend2 = (float) ($calc['pending'] ?? 0);
+          if ($pend2 > 0.01) {
+            $note = [
+              'label' => self::format_trip_label($second),
+              'expediente_id' => $second_id,
+              'pending' => casanova_fmt_money($pend2),
+            ];
+          }
+        }
+      }
+    }
+
+    return [
+      'status' => 'ok',
+      'badge' => __('Todo listo', 'casanova-portal'),
+      'description' => __('Tu próximo viaje está al día. No tienes acciones pendientes ahora mismo.', 'casanova-portal'),
+      'expediente_id' => (int) $next_trip['id'],
+      'trip_label' => $trip_label,
+      'note' => $note,
+    ];
+  }
+
+  /**
+   * @param array<string,mixed> $trip
+   */
+  private static function format_trip_label(array $trip): string {
+    $title = trim((string) ($trip['title'] ?? ''));
+    $code = trim((string) ($trip['code'] ?? ''));
+    if ($title && $code) return $title . ' (' . $code . ')';
+    if ($title) return $title;
+    if ($code) return sprintf(__('Expediente %s', 'casanova-portal'), $code);
+    $id = (int) ($trip['id'] ?? 0);
+    return $id ? sprintf(__('Expediente %s', 'casanova-portal'), (string) $id) : __('Viaje', 'casanova-portal');
   }
 
   /**

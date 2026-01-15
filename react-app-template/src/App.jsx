@@ -176,6 +176,33 @@ function euro(n, currency = "EUR") {
   }
 }
 
+function formatTierLabel(tier) {
+  if (!tier) return "—";
+  const normalized = String(tier).toLowerCase();
+  const map = {
+    birdie: "Birdie",
+    eagle: "Eagle",
+    eagle_plus: "Eagle+",
+    albatross: "Albatross",
+  };
+  if (map[normalized]) return map[normalized];
+  return normalized.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatTimestamp(value) {
+  const ts = Number(value || 0);
+  if (!Number.isFinite(ts) || ts <= 0) return null;
+  const date = new Date(ts * 1000);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 
 function formatMsgDate(d) {
   if (!d) return "—";
@@ -319,6 +346,25 @@ function TripsList({ mock, onOpen, dashboard }) {
         <tbody>
           {filteredTrips.map((t) => {
             const r = normalizeTripDates(t);
+            const payments = t?.payments || null;
+            const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
+            const paidAmount = typeof payments?.paid === "number" ? payments.paid : Number.NaN;
+            const pendingCandidate = typeof payments?.pending === "number" ? payments.pending : Number.NaN;
+            const pendingAmount = Number.isFinite(pendingCandidate)
+              ? pendingCandidate
+              : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
+                  ? Math.max(0, totalAmount - paidAmount)
+                  : Number.NaN);
+            const hasPayments = Number.isFinite(totalAmount);
+            const totalLabel = hasPayments ? euro(totalAmount) : "—";
+            const pendingLabel = Number.isFinite(pendingAmount) ? euro(pendingAmount) : "—";
+            const paymentsLabel = hasPayments
+              ? (pendingAmount <= 0.01 ? "Pagado" : `Pendiente: ${pendingLabel}`)
+              : "—";
+            const bonusesAvailable = typeof t?.bonuses?.available === "boolean" ? t.bonuses.available : null;
+            const bonusesLabel = bonusesAvailable === null
+              ? "—"
+              : (bonusesAvailable ? "Disponibles" : "No disponibles");
             return (
               <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
                 <td>{t.code || `#${t.id}`}</td>
@@ -328,10 +374,10 @@ function TripsList({ mock, onOpen, dashboard }) {
                 </td>
                 <td>{formatDateES(r.start)}</td>
                 <td>{formatDateES(r.end)}</td>
-                <td>{t.status || "—"}</td>
-                <td style={{ textAlign: "right" }}>—</td>
-                <td>—</td>
-                <td>—</td>
+                <td>{t.status || "-"}</td>
+                <td style={{ textAlign: "right" }}>{totalLabel}</td>
+                <td>{paymentsLabel}</td>
+                <td>{bonusesLabel}</td>
                 <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                   <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
                     Ver detalle
@@ -628,7 +674,7 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
             onClick={() => {
               const params = new URLSearchParams(window.location.search);
               params.set("view", "trip");
-              params.set("trip", String(it.expediente_id));
+              params.set("expediente", String(it.expediente_id));
               // abre directamente pestaña Mensajes
               params.set("tab", "messages");
               window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
@@ -1206,6 +1252,234 @@ function MulligansView({ data }) {
   );
 }
 
+
+
+function DashboardView({ data }) {
+  const nextTrip = data?.next_trip || null;
+  const payments = data?.payments || null;
+  const mull = data?.mulligans || null;
+  const action = data?.next_action || null;
+
+  const hasPaymentsData = payments && !Array.isArray(payments);
+  const totalAmount = hasPaymentsData ? Number(payments?.total) : Number.NaN;
+  const paidAmount = hasPaymentsData ? Number(payments?.paid) : Number.NaN;
+  const pendingCandidate = hasPaymentsData ? Number(payments?.pending) : Number.NaN;
+  const pendingAmount = hasPaymentsData
+    ? (Number.isFinite(pendingCandidate)
+        ? pendingCandidate
+        : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
+            ? Math.max(0, totalAmount - paidAmount)
+            : null))
+    : null;
+  const totalLabel = Number.isFinite(totalAmount) ? euro(totalAmount) : "—";
+  const paidLabel = Number.isFinite(paidAmount) ? euro(paidAmount) : "—";
+  const pendingLabel = pendingAmount !== null ? euro(pendingAmount) : "—";
+  const paymentProgress =
+    hasPaymentsData && Number.isFinite(totalAmount) && totalAmount > 0 && Number.isFinite(paidAmount)
+      ? Math.max(0, Math.min(100, Math.round((paidAmount / totalAmount) * 100)))
+      : 0;
+
+  const points = typeof mull?.points === "number" ? mull.points : 0;
+  const levelLabel = formatTierLabel(mull?.tier);
+  const lastSyncLabel = formatTimestamp(mull?.last_sync);
+
+  const tripLabel = nextTrip?.title ? String(nextTrip.title) : "Viaje";
+  const tripCode = nextTrip?.code ? String(nextTrip.code) : "";
+  const tripContext = tripCode ? `${tripLabel} (${tripCode})` : tripLabel;
+  const tripMeta = [tripCode, nextTrip?.date_range].filter(Boolean).join(" · ");
+  const daysLeftRaw = Number(nextTrip?.days_left);
+  const daysLeft = Number.isFinite(daysLeftRaw) ? Math.max(0, Math.round(daysLeftRaw)) : null;
+  const daysLeftLabel = daysLeft !== null ? `En ${daysLeft} días` : null;
+  const calendarUrl = nextTrip?.calendar_url ? String(nextTrip.calendar_url) : "";
+
+  const isPaid = pendingAmount !== null ? pendingAmount <= 0.01 : false;
+  const actionStatus = action?.status || (hasPaymentsData ? (isPaid ? "ok" : "pending") : "info");
+  const actionBadge = action?.badge || (hasPaymentsData ? (isPaid ? "Todo listo" : "Pendiente") : "Info");
+  const actionText = action?.description || (!nextTrip
+    ? "No hay viajes próximos para mostrar aquí."
+    : !hasPaymentsData
+      ? "Cuando haya información de pagos, la verás reflejada aquí."
+      : isPaid
+        ? "Tu próximo viaje está al día. No tienes acciones pendientes ahora mismo."
+        : `Tienes un pago pendiente de ${euro(pendingAmount)}.`);
+  const actionTripLabel = action?.trip_label || (nextTrip ? tripContext : "");
+  const actionNote = action?.note || null;
+  const noteExpedienteId = actionNote?.expediente_id ? String(actionNote.expediente_id) : "";
+  const actionNoteUrl = noteExpedienteId
+    ? (() => {
+        const p = new URLSearchParams(window.location.search);
+        p.set("view", "trip");
+        p.set("expediente", noteExpedienteId);
+        return `${window.location.pathname}?${p.toString()}`;
+      })()
+    : (actionNote?.url ? String(actionNote.url) : "");
+  const actionPillClass = actionStatus === "pending" ? "is-warn" : (actionStatus === "ok" ? "is-ok" : "is-info");
+
+  const viewTrip = () => {
+    if (!nextTrip?.id) return;
+    setParam("view", "trip");
+    setParam("expediente", String(nextTrip.id));
+  };
+
+  const viewPayments = () => {
+    if (!nextTrip?.id) return;
+    setParam("view", "trip");
+    setParam("expediente", String(nextTrip.id));
+    setParam("tab", "payments");
+  };
+
+  const viewActionTrip = () => {
+    const targetId = action?.expediente_id || nextTrip?.id;
+    if (!targetId) return;
+    setParam("view", "trip");
+    setParam("expediente", String(targetId));
+    if (actionStatus === "pending") setParam("tab", "payments");
+  };
+
+  const viewNoteTrip = (event) => {
+    if (!noteExpedienteId) return;
+    if (event && typeof event.preventDefault === "function") event.preventDefault();
+    setParam("view", "trip");
+    setParam("expediente", noteExpedienteId);
+  };
+
+  return (
+    <div className="cp-content">
+      <div className="cp-grid cp-dash-grid">
+        <section className="cp-card cp-dash-card cp-dash-span-8">
+          <div className="cp-dash-head">
+            <div className="cp-card-title">Próximo viaje</div>
+            <div className="cp-dash-head-right">
+              {daysLeftLabel ? <span className="cp-pill cp-dash-pill">{daysLeftLabel}</span> : null}
+              {nextTrip?.status ? <span className="cp-pill cp-dash-pill">{nextTrip.status}</span> : null}
+            </div>
+          </div>
+          {nextTrip ? (
+            <>
+              <div className="cp-dash-next-title">{tripLabel}</div>
+              <div className="cp-dash-next-meta">{tripMeta || "Fechas por definir"}</div>
+              <div className="cp-dash-kpis">
+                <div className="cp-dash-kpi">
+                  <div className="cp-dash-kpi-label">Total viaje</div>
+                  <div className="cp-dash-kpi-value">{hasPaymentsData ? totalLabel : "—"}</div>
+                </div>
+                <div className="cp-dash-kpi">
+                  <div className="cp-dash-kpi-label">Pendiente</div>
+                  <div className="cp-dash-kpi-value cp-dash-kpi-value--warn">
+                    {hasPaymentsData ? pendingLabel : "—"}
+                  </div>
+                </div>
+              </div>
+              <div className="cp-dash-actions">
+                <div className="cp-dash-actions-left">
+                  <button className="cp-btn primary" onClick={viewTrip}>
+                    Ver detalle
+                  </button>
+                  <button className="cp-btn cp-btn--ghost" onClick={viewPayments} disabled={!hasPaymentsData}>
+                    Pagos
+                  </button>
+                  {calendarUrl ? (
+                    <a className="cp-btn cp-btn--ghost" href={calendarUrl}>
+                      Calendario
+                    </a>
+                  ) : null}
+                </div>
+                <div className="cp-dash-actions-meta">
+                  Pagado: {hasPaymentsData ? paidLabel : "—"}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="cp-muted" style={{ marginTop: 8 }}>
+              No tienes viajes próximos.
+            </div>
+          )}
+        </section>
+
+        <section className="cp-card cp-dash-card cp-dash-span-4">
+          <div className="cp-dash-head">
+            <div className="cp-card-title">Qué necesitas hacer ahora</div>
+            <span className={`cp-pill cp-dash-pill ${actionPillClass}`}>{actionBadge}</span>
+          </div>
+          {actionTripLabel ? (
+            <div className="cp-dash-context">
+              Para: <strong>{actionTripLabel}</strong>
+            </div>
+          ) : null}
+          <div className="cp-dash-note">{actionText}</div>
+          {actionNote?.label && actionNoteUrl ? (
+            <div className="cp-dash-note-box">
+              También tienes otro viaje a la vista:{" "}
+              <a href={actionNoteUrl} onClick={noteExpedienteId ? viewNoteTrip : undefined}>
+                {actionNote.label}
+              </a>
+              {actionNote.pending ? ` · Pendiente: ${actionNote.pending}` : ""}
+            </div>
+          ) : null}
+          {actionTripLabel ? (
+            <button className="cp-btn primary" onClick={viewActionTrip}>
+              Ver viaje
+            </button>
+          ) : null}
+        </section>
+
+        <section className="cp-card cp-dash-card cp-dash-span-4">
+          <div className="cp-dash-head">
+            <div className="cp-card-title">Estado de pagos</div>
+            {hasPaymentsData ? (
+              <span className={`cp-pill cp-dash-pill ${isPaid ? "is-ok" : "is-warn"}`}>
+                {isPaid ? "Todo pagado" : "Pendiente"}
+              </span>
+            ) : null}
+          </div>
+          {hasPaymentsData ? (
+            <>
+              <div className="cp-dash-stats">
+                <div>
+                  <div className="cp-dash-stat-label">Pagado</div>
+                  <div className="cp-dash-stat-value">{paidLabel}</div>
+                </div>
+                <div>
+                  <div className="cp-dash-stat-label">Total</div>
+                  <div className="cp-dash-stat-value">{totalLabel}</div>
+                </div>
+              </div>
+              <div className="cp-dash-progress">
+                <div className="cp-dash-progress-bar" style={{ width: `${paymentProgress}%` }} />
+              </div>
+              <div className="cp-dash-meta">
+                Has pagado {paidLabel} de {totalLabel}
+              </div>
+              <button className="cp-btn cp-btn--ghost" onClick={viewPayments}>
+                Ver detalle
+              </button>
+            </>
+          ) : (
+            <div className="cp-muted" style={{ marginTop: 12 }}>
+              No hay datos de pagos disponibles por el momento.
+            </div>
+          )}
+        </section>
+
+        <section className="cp-card cp-dash-card cp-dash-span-6">
+          <div className="cp-dash-head">
+            <div className="cp-card-title">Tus Mulligans</div>
+            <span className="cp-pill cp-dash-pill">{levelLabel}</span>
+          </div>
+          <div className="cp-dash-mull-points">{points.toLocaleString("es-ES")}</div>
+          <div className="cp-dash-meta">
+            Gasto acumulado: {typeof mull?.spend === "number" ? euro(mull.spend) : "—"}
+          </div>
+          {lastSyncLabel ? <div className="cp-dash-meta">Última actualización: {lastSyncLabel}</div> : null}
+          <button className="cp-btn cp-btn--ghost" onClick={() => setParam("view", "mulligans")}>
+            Ver movimientos
+          </button>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [route, setRoute] = useState(readParams());
   const [dashboard, setDashboard] = useState(null);
@@ -1335,6 +1609,8 @@ function App() {
           <TripDetailView mock={route.mock} expediente={route.expediente} dashboard={dashboard} onLatestTs={handleLatestTs} onSeen={markMessagesSeen} />
         ) : route.view === "inbox" ? (
           <InboxView mock={route.mock} inbox={inbox} loading={loadingDash} error={inboxErr} onLatestTs={handleLatestTs} onSeen={markMessagesSeen} />
+        ) : route.view === "dashboard" ? (
+          <DashboardView data={dashboard} />
         ) : route.view === "mulligans" ? (
           <MulligansView data={dashboard} />
         ) : (
