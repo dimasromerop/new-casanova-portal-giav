@@ -32,7 +32,7 @@ if (!defined('CASANOVA_LOG_LEVEL')) {
  *   add_filter('casanova_portal_base_url', fn() => home_url('/tu-pagina/'));
  */
 function casanova_portal_base_url(): string {
-  $default = home_url('/area-usuario/');
+  $default = home_url('/portal-app/');
   $url = (string) apply_filters('casanova_portal_base_url', $default);
   return $url ?: $default;
 }

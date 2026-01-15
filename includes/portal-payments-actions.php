@@ -285,7 +285,7 @@ function casanova_handle_pay_expediente(): void {
   // Si no hay nada que pagar, fuera.
   if ($total_pend <= 0.01) {
     error_log('[CASANOVA][PAY] redirect: nothing to pay expediente=' . $idExpediente);
-    $base = function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/area-usuario/');
+    $base = function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/portal-app/');
     // ' . esc_html__('Volver', 'casanova-portal') . ' al mismo contexto del portal. Si estamos usando el router (?view=...)
     // forzamos la vista de expedientes para no caer en Principal tras pagar.
     $view = isset($_GET['view']) ? sanitize_key((string)$_GET['view']) : '';

@@ -5,7 +5,7 @@
   - Mensajes: timeline por expediente (usa /messages?expediente=ID)
 */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /* ===== Helpers ===== */
 function api(path, options = {}) {
@@ -1570,6 +1570,8 @@ function App() {
   const [loadingDash, setLoadingDash] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dashErr, setDashErr] = useState(null);
+  const [showPaymentBanner, setShowPaymentBanner] = useState(false);
+  const bannerTimerRef = useRef(null);
 
   const [inbox, setInbox] = useState(null);
   const [inboxErr, setInboxErr] = useState(null);
@@ -1582,6 +1584,26 @@ function App() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+
+  useEffect(() => {
+    if (route.payment === "success") {
+      setShowPaymentBanner(true);
+      if (bannerTimerRef.current) {
+        window.clearTimeout(bannerTimerRef.current);
+      }
+      bannerTimerRef.current = window.setTimeout(() => {
+        setShowPaymentBanner(false);
+      }, 5_000);
+      setParam("payment", "");
+      setParam("pay_status", "");
+    }
+    return () => {
+      if (bannerTimerRef.current) {
+        window.clearTimeout(bannerTimerRef.current);
+        bannerTimerRef.current = null;
+      }
+    };
+  }, [route.payment]);
 
   async function loadDashboard(refresh = false) {
     const hadData = !!dashboard;
@@ -1666,6 +1688,13 @@ function App() {
       <Sidebar view={route.view} unread={unreadCount} />
       <main className="cp-main">
         <Topbar title={title} chip={chip} onRefresh={() => loadDashboard(true)} isRefreshing={isRefreshing} />
+        {showPaymentBanner ? (
+          <div className="cp-content">
+            <Notice variant="success" title="Pago registrado">
+              Gracias, procesamos el cobro y actualizamos tus datos.
+            </Notice>
+          </div>
+        ) : null}
 
         {loadingDash && !dashboard ? (
           <div className="cp-content">
