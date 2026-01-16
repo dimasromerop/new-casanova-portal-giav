@@ -295,6 +295,16 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     $rid = (int) ($r->Id ?? 0);
     $price = null;
 
+    // Optional WP-side media (hotel/golf images) if there is mapping GIAV→WP.
+    $media = function_exists('casanova_portal_resolve_service_media')
+      ? casanova_portal_resolve_service_media(
+          $tipo,
+          (int) ($m['id_proveedor'] ?? ($r->IdProveedor ?? 0)),
+          (int) ($m['id_producto'] ?? ($r->IdProducto ?? 0)),
+          $title
+        )
+      : ['image_url' => null, 'permalink' => null, 'source' => null];
+
     if ($show_price && isset($r->Venta) && $r->Venta !== '') {
       $price = is_numeric($r->Venta) ? (float) $r->Venta : null;
     }
@@ -312,6 +322,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       'date_range' => $dates,
       'price' => $price,
       'included' => $included,
+      'media' => $media,
       'actions' => $actions,
       'voucher_urls' => $voucher_urls,
       'detail' => [

@@ -821,6 +821,7 @@ function ServiceItem({ service, indent = false }) {
   const detail = service.detail || {};
   const bonusText = typeof detail.bonus_text === "string" ? detail.bonus_text.trim() : "";
   const price = typeof service.price === "number" ? service.price : null;
+  const imageUrl = service?.media?.image_url || "";
   const viewUrl = service.voucher_urls?.view || "";
   const pdfUrl = service.voucher_urls?.pdf || "";
   const canVoucher = Boolean(service.actions?.voucher);
@@ -835,6 +836,11 @@ function ServiceItem({ service, indent = false }) {
   return (
     <div className={`cp-service${indent ? " cp-service--child" : ""}`}>
       <div className="cp-service__summary">
+        {imageUrl ? (
+          <div className="cp-service__thumb" aria-hidden="true">
+            <img src={imageUrl} alt="" loading="lazy" />
+          </div>
+        ) : null}
         <div className="cp-service__main">
           <div className="cp-service__code">
             {detail.code || service.id || "Servicio"}

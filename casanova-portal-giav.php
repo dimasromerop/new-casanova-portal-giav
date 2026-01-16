@@ -160,6 +160,9 @@ require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/services/inbox-service.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/services/payments-service.php';
 
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/dto/trip-dto.php';
+  // Resolver de imágenes/permalinks (hoteles JetEngine CCT, campos CPT, etc.)
+  // Permite al portal mostrar thumbnails si existe mapeo GIAV→WP.
+  require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/services/media-resolver.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/services/trip-service.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/trip-controller.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/payments-controller.php';

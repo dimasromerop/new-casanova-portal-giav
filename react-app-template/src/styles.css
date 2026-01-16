@@ -481,6 +481,23 @@ a { color: inherit; text-decoration: none; }
   align-items: flex-start;
 }
 
+.cp-service__thumb {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+}
+
+.cp-service__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .cp-service__main {
   min-width: 0;
 }
