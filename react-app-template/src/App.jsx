@@ -615,8 +615,10 @@ function TripsList({ mock, onOpen, dashboard }) {
                         ? Math.max(0, totalAmount - paidAmount)
                         : Number.NaN);
                   const hasPayments = Number.isFinite(totalAmount);
-                  const totalLabel = hasPayments ? euro(totalAmount) : "-";
-                  const pendingLabel = Number.isFinite(pendingAmount) ? euro(pendingAmount) : "-";
+                  const currencyForTrip = payments?.currency || "EUR";
+                  const totalLabel = hasPayments ? euro(totalAmount, currencyForTrip) : "-";
+                  const pendingLabel = Number.isFinite(pendingAmount) ? euro(pendingAmount, currencyForTrip) : "-";
+                  const paidLabel = Number.isFinite(paidAmount) ? euro(paidAmount, currencyForTrip) : "-";
                   const paymentsLabelText = hasPayments
                     ? (pendingAmount <= 0.01 ? "Pagado" : "Pendiente")
                     : "Sin datos";
@@ -645,7 +647,12 @@ function TripsList({ mock, onOpen, dashboard }) {
                       </td>
                       <td style={{ textAlign: "right" }}>{totalLabel}</td>
                       <td>
-                        <BadgeLabel label={paymentsLabelText} variant={paymentsVariant} />
+                        <div className="cp-trip-payments-info">
+                          <BadgeLabel label={paymentsLabelText} variant={paymentsVariant} />
+                          {hasPayments && Number.isFinite(paidAmount) ? (
+                            <div className="cp-trip-paid-amount">Pagado: {euro(paidAmount)}</div>
+                          ) : null}
+                        </div>
                       </td>
                       <td>
                         <BadgeLabel label={bonusesLabel} variant={bonusesVariant} />
