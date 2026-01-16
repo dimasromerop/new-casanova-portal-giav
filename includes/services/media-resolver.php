@@ -29,7 +29,9 @@ function casanova_portal_resolve_service_media(string $service_type, int $id_pro
     ];
   }
 
-  $mapping = casanova_portal_find_wp_mapping($id_proveedor, $id_producto);
+  // Use service type to disambiguate suppliers that map to both a hotel and a golf course.
+  // Mapping table stores wp_object_type as 'hotel' or 'course'.
+  $mapping = casanova_portal_find_wp_mapping($service_type, $id_proveedor, $id_producto);
   if (!$mapping) {
     return ['image_url' => null, 'permalink' => null, 'source' => null];
   }
@@ -41,7 +43,10 @@ function casanova_portal_resolve_service_media(string $service_type, int $id_pro
   }
 
   // Golf courses: usually a WP post/CPT.
-  if ($object_type === 'post' || $object_type === 'cpt' || $object_type === 'campos_de_golf' || $object_type === 'golf_course' || $object_type === 'golf') {
+  if (
+    $object_type === 'post' || $object_type === 'cpt' || $object_type === 'campos_de_golf' ||
+    $object_type === 'golf_course' || $object_type === 'golf' || $object_type === 'course'
+  ) {
     $img = get_the_post_thumbnail_url($object_id, 'large');
     $url = get_permalink($object_id);
     return [
@@ -73,10 +78,20 @@ function casanova_portal_resolve_service_media(string $service_type, int $id_pro
  * Attempt to find a mapping row in a shared GIAV mapping table.
  * We support multiple table/column name variants to avoid fragile coupling.
  */
-function casanova_portal_find_wp_mapping(int $id_proveedor, int $id_producto): ?array {
+function casanova_portal_find_wp_mapping(string $service_type, int $id_proveedor, int $id_producto): ?array {
   global $wpdb;
   if (!$wpdb) return null;
   if ($id_proveedor <= 0 && $id_producto <= 0) return null;
+
+  $service_type = strtoupper(trim($service_type));
+  $wanted_wp_object_type = null;
+  if ($service_type === 'HT') {
+    $wanted_wp_object_type = 'hotel';
+  } elseif ($service_type === 'OT') {
+    // Best-effort: in our mapping table, OT images are only relevant for golf (courses).
+    // Transfers/extras won't have wp_object_type=course mapping.
+    $wanted_wp_object_type = 'course';
+  }
 
   $candidates = [
     $wpdb->prefix . 'wp_travel_giav_mapping',
@@ -96,7 +111,7 @@ function casanova_portal_find_wp_mapping(int $id_proveedor, int $id_producto): ?
   if (!is_array($cols) || !$cols) return null;
   $cols_l = array_map('strtolower', $cols);
 
-  $col_supplier = casanova_portal_pick_col($cols_l, ['giav_supplier_id','supplier_id','id_proveedor','idproveedor']);
+  $col_supplier = casanova_portal_pick_col($cols_l, ['giav_supplier_id','supplier_id','id_proveedor','idproveedor','giav_entity_id']);
   $col_product  = casanova_portal_pick_col($cols_l, ['giav_product_id','product_id','id_producto','idproducto']);
   $col_type     = casanova_portal_pick_col($cols_l, ['wp_object_type','object_type','wp_type','tipo_wp']);
   $col_id       = casanova_portal_pick_col($cols_l, ['wp_object_id','object_id','wp_id','id_wp']);
@@ -104,12 +119,14 @@ function casanova_portal_find_wp_mapping(int $id_proveedor, int $id_producto): ?
   if (!$col_type || !$col_id) return null;
 
   $where = [];
-  $args  = [];
   if ($col_supplier && $id_proveedor > 0) {
     $where[] = $wpdb->prepare("`$col_supplier` = %d", $id_proveedor);
   }
   if ($col_product && $id_producto > 0) {
     $where[] = $wpdb->prepare("`$col_product` = %d", $id_producto);
+  }
+  if ($wanted_wp_object_type && $col_type) {
+    $where[] = $wpdb->prepare("LOWER(`$col_type`) = %s", strtolower($wanted_wp_object_type));
   }
 
   if (!$where) return null;
