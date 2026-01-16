@@ -324,6 +324,11 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     $title = (string) ($m['descripcion'] ?? ($r->Descripcion ?? 'Servicio'));
     $rid = (int) ($r->Id ?? 0);
     $price = null;
+    $observations = self::pick_first([
+      self::read_prop($r, ['Observaciones', 'Observacion', 'Notas', 'Nota']),
+      self::read_prop($r, ['TextoBono', 'Texto']),
+      self::read_prop($r, ['Comentarios', 'Comentario']),
+    ]);
 
     // Optional WP-side media (hotel/golf images) if there is mapping GIAV→WP.
     $media = function_exists('casanova_portal_resolve_service_media')
@@ -340,16 +345,27 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     }
 
     $dates = function_exists('casanova_fmt_date_range') ? casanova_fmt_date_range($r->FechaDesde ?? null, $r->FechaHasta ?? null) : '';
+    $date_from = self::normalize_date($r->FechaDesde ?? null);
+    $date_to = self::normalize_date($r->FechaHasta ?? null);
 
     $actions = self::build_actions($allow_voucher);
     $voucher_urls = $allow_voucher ? self::voucher_urls($expediente_id, $rid) : ['view' => '', 'pdf' => ''];
+
+    $semantic_type = self::resolve_semantic_type($tipo, $r);
+    $details = self::map_service_details($semantic_type, $r, $m, $observations);
 
     return [
       'id' => $code ?: ('srv-' . $rid),
       'code' => $code,
       'type' => $tipo !== '' ? $tipo : 'OT',
+      'giav_type' => $tipo !== '' ? $tipo : 'OT',
+      'semantic_type' => $semantic_type,
       'title' => $title,
+      'date_from' => $date_from,
+      'date_to' => $date_to,
       'date_range' => $dates,
+      'observations' => $observations,
+      'details' => $details,
       'price' => $price,
       'included' => $included,
       'media' => $media,
@@ -361,8 +377,192 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
         'dates' => $dates,
         'locator' => (string) ($r->Localizador ?? ''),
         'bonus_text' => trim((string) ($r->TextoBono ?? '')),
+        'observations' => $observations,
+        'details' => $details,
       ],
     ];
+  }
+
+  private static function resolve_semantic_type(string $giav_type, $r): string {
+    $giav_type = strtoupper(trim($giav_type));
+    if (function_exists('casanova_is_golf_service') && casanova_is_golf_service($giav_type, $r)) {
+      return 'golf';
+    }
+    return match ($giav_type) {
+      'HT' => 'hotel',
+      'AV' => 'flight',
+      default => 'other',
+    };
+  }
+
+  /**
+   * @param array<string,mixed> $mapped
+   * @return array<string,mixed>
+   */
+  private static function map_service_details(string $semantic_type, $r, array $mapped, string $observations): array {
+    return match ($semantic_type) {
+      'hotel' => self::map_hotel_service($r),
+      'golf' => self::map_golf_service($r, $mapped, $observations),
+      'flight' => self::map_flight_service($r, $mapped),
+      default => ['notes' => $observations],
+    };
+  }
+
+  /**
+   * @return array<string,string>
+   */
+  private static function map_hotel_service($r): array {
+    $dx = is_object($r) ? ($r->DatosExternos ?? null) : null;
+    $rooms = function_exists('casanova_reserva_room_types_text') ? casanova_reserva_room_types_text($r) : '';
+    if ($rooms === '') {
+      $rooms = self::pick_first([
+        self::read_prop($r, ['Habitaciones', 'TipoHabitacion', 'TiposHabitacion']),
+        self::read_prop($dx, ['Habitaciones', 'TipoHabitacion', 'TiposHabitacion']),
+      ]);
+    }
+
+    $board = self::pick_first([
+      self::read_prop($r, ['Regimen', 'Board', 'Regime']),
+      self::read_prop($dx, ['Regimen', 'Board', 'Regime']),
+    ]);
+
+    $rooming = self::pick_first([
+      self::read_prop($r, ['Rooming', 'TextoRooming']),
+      self::read_prop($dx, ['Rooming', 'TextoRooming']),
+    ]);
+
+    return [
+      'rooms' => $rooms,
+      'board' => $board,
+      'rooming' => $rooming,
+    ];
+  }
+
+  /**
+   * @param array<string,mixed> $mapped
+   * @return array<string,mixed>
+   */
+  private static function map_golf_service($r, array $mapped, string $observations): array {
+    $players = 0;
+    if (!empty($mapped['pax'])) {
+      $players = (int) $mapped['pax'];
+    } elseif (is_object($r) && isset($r->NumPax)) {
+      $players = (int) $r->NumPax;
+    }
+
+    return [
+      'players' => $players,
+      'notes' => $observations,
+    ];
+  }
+
+  /**
+   * @param array<string,mixed> $mapped
+   * @return array<string,string>
+   */
+  private static function map_flight_service($r, array $mapped): array {
+    $dx = is_object($r) ? ($r->DatosExternos ?? null) : null;
+
+    $origin = self::pick_first([
+      self::read_prop($r, ['Origen', 'CiudadOrigen', 'AeropuertoOrigen', 'AirportOrigen']),
+      self::read_prop($dx, ['Origen', 'CiudadOrigen', 'AeropuertoOrigen', 'AirportOrigen']),
+    ]);
+    $destination = self::pick_first([
+      self::read_prop($r, ['Destino', 'CiudadDestino', 'AeropuertoDestino', 'AirportDestino']),
+      self::read_prop($dx, ['Destino', 'CiudadDestino', 'AeropuertoDestino', 'AirportDestino']),
+    ]);
+    $route = '';
+    if ($origin !== '' || $destination !== '') {
+      $route = trim($origin . ($origin && $destination ? ' → ' : '') . $destination);
+    }
+
+    $flight_code = self::pick_first([
+      self::read_prop($r, ['CodigoVuelo', 'Vuelo', 'FlightNumber', 'NumeroVuelo']),
+      self::read_prop($dx, ['CodigoVuelo', 'Vuelo', 'FlightNumber', 'NumeroVuelo']),
+      (string) ($mapped['codigo'] ?? ''),
+    ]);
+
+    $departure = self::pick_first([
+      self::read_prop($r, ['HoraSalida', 'SalidaHora', 'HoraEmbarque']),
+      self::read_prop($dx, ['HoraSalida', 'SalidaHora', 'HoraEmbarque']),
+    ]);
+    $arrival = self::pick_first([
+      self::read_prop($r, ['HoraLlegada', 'LlegadaHora']),
+      self::read_prop($dx, ['HoraLlegada', 'LlegadaHora']),
+    ]);
+    $schedule = '';
+    if ($departure !== '' || $arrival !== '') {
+      $schedule = trim($departure . ($departure && $arrival ? ' – ' : '') . $arrival);
+    }
+
+    $passengers = self::build_passengers_summary($r, $mapped);
+
+    return [
+      'route' => $route,
+      'flight_code' => $flight_code,
+      'schedule' => $schedule,
+      'passengers' => $passengers,
+    ];
+  }
+
+  /**
+   * @param array<string,mixed> $mapped
+   */
+  private static function build_passengers_summary($r, array $mapped): string {
+    $pax = (int) ($mapped['pax'] ?? 0);
+    $adult = (int) ($mapped['adultos'] ?? 0);
+    $child = (int) ($mapped['ninos'] ?? 0);
+
+    if (is_object($r)) {
+      if (!$pax && isset($r->NumPax)) $pax = (int) $r->NumPax;
+      if (!$adult && isset($r->NumAdultos)) $adult = (int) $r->NumAdultos;
+      if (!$child && isset($r->NumNinos)) $child = (int) $r->NumNinos;
+    }
+
+    if ($pax > 0) {
+      return (string) $pax;
+    }
+
+    $parts = [];
+    if ($adult > 0) {
+      $parts[] = sprintf(__('%d adultos', 'casanova-portal'), $adult);
+    }
+    if ($child > 0) {
+      $parts[] = sprintf(__('%d niños', 'casanova-portal'), $child);
+    }
+
+    return implode(' · ', $parts);
+  }
+
+  private static function normalize_date($value): ?string {
+    if (empty($value)) return null;
+    $ts = strtotime((string) $value);
+    if ($ts === false) return null;
+    return gmdate('Y-m-d', $ts);
+  }
+
+  /**
+   * @param array<int,string> $values
+   */
+  private static function pick_first(array $values): string {
+    foreach ($values as $val) {
+      $val = trim((string) $val);
+      if ($val !== '') return $val;
+    }
+    return '';
+  }
+
+  /**
+   * @param array<int,string> $keys
+   */
+  private static function read_prop($obj, array $keys): string {
+    if (!is_object($obj)) return '';
+    foreach ($keys as $key) {
+      if (isset($obj->$key) && $obj->$key !== '') {
+        return trim((string) $obj->$key);
+      }
+    }
+    return '';
   }
 
   /**
