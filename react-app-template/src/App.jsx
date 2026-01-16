@@ -226,6 +226,18 @@ const ICON_PROPS = {
   focusable: "false",
 };
 
+const KPI_ICON_PROPS = {
+  width: 20,
+  height: 20,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  focusable: "false",
+};
+
 function IconGrid() {
   return (
     <svg {...ICON_PROPS} aria-hidden="true">
@@ -280,6 +292,157 @@ function IconWallet() {
       <circle cx={17} cy={11.5} r={1} fill="currentColor" stroke="none" />
     </svg>
   );
+}
+
+function IconPlane() {
+  return (
+    <svg
+      viewBox="0 0 122.88 122.88"
+      width={22}
+      height={22}
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M16.63,105.75c0.01-4.03,2.3-7.97,6.03-12.38L1.09,79.73c-1.36-0.59-1.33-1.42-0.54-2.4l4.57-3.9
+		c0.83-0.51,1.71-0.73,2.66-0.47l26.62,4.5l22.18-24.02L4.8,18.41c-1.31-0.77-1.42-1.64-0.07-2.65l7.47-5.96l67.5,18.97L99.64,7.45
+		c6.69-5.79,13.19-8.38,18.18-7.15c2.75,0.68,3.72,1.5,4.57,4.08c1.65,5.06-0.91,11.86-6.96,18.86L94.11,43.18l18.97,67.5
+		l-5.96,7.47c-1.01,1.34-1.88,1.23-2.65-0.07L69.43,66.31L45.41,88.48l4.5,26.62c0.26,0.94,0.05,1.82-0.47,2.66l-3.9,4.57
+		c-0.97,0.79-1.81,0.82-2.4-0.54l-13.64-21.57c-4.43,3.74-8.37,6.03-12.42,6.03C16.71,106.24,16.63,106.11,16.63,105.75
+		L16.63,105.75z"
+      />
+    </svg>
+  );
+}
+
+function IconBriefcase() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <rect x={5} y={9} width={14} height={12} rx={2} stroke="currentColor" strokeWidth={1.5} fill="none" />
+      <path d="M8 9V7h8v2" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+      <path d="M6 13h12" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconShieldCheck() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <path d="M12 3l6 3v6c0 4-3 7-6 8-3-1-6-4-6-8V6z" fill="none" stroke="currentColor" strokeWidth={1.5} />
+      <polyline
+        points="9.5 12 11.5 14.5 15.5 10.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconClockArrow() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <circle cx={12} cy={12} r={8} fill="none" stroke="currentColor" strokeWidth={1.5} />
+      <path d="M12 8v4l3 2" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconSparkle() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <path d="M12 4l2 4 4 .5-3 2.9 1 4.7-4-2-4 2 1-4.7-3-2.9 4-.5z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconChartBar() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <rect x={5} y={11} width={3} height={8} fill="currentColor" />
+      <rect x={10.5} y={7} width={3} height={12} fill="currentColor" />
+      <rect x={16} y={4} width={3} height={15} fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconCalendar() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <rect x={4} y={5} width={16} height={15} rx={3} fill="none" stroke="currentColor" strokeWidth={1.5} />
+      <line x1={4} y1={9} x2={20} y2={9} stroke="currentColor" strokeWidth={1.5} />
+      <line x1={7} y1={2} x2={7} y2={7} stroke="currentColor" strokeWidth={1.5} />
+      <line x1={17} y1={2} x2={17} y2={7} stroke="currentColor" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+function IconStar() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <path d="M12 3l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 17l-5.2 2.5 1-5.8-4.2-4.1 5.8-.8z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function KpiCard({ icon, label, value, colorClass = "" }) {
+  return (
+    <div className="cp-kpi-card">
+      <span className={`cp-kpi-card__icon ${colorClass}`} aria-hidden="true">
+        {icon}
+      </span>
+      <div>
+        <div className="cp-kpi-card__label">{label}</div>
+        <div className="cp-kpi-card__value">{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function BadgeLabel({ label, variant = "info", className = "" }) {
+  if (!label) return null;
+  const base = `cp-badge cp-badge--${variant}`.trim();
+  return <span className={`${base} ${className}`.trim()}>{label}</span>;
+}
+
+function getStatusVariant(status) {
+  const value = String(status || "").toLowerCase();
+  if (!value) return "muted";
+  if (/(pag|ok|listo)/.test(value)) return "success";
+  if (/pend/.test(value)) return "warning";
+  if (/(cancel|rech|fail|error)/.test(value)) return "danger";
+  return "info";
+}
+
+function getPaymentVariant(pendingAmount, hasPayments) {
+  if (!hasPayments) return "muted";
+  if (pendingAmount <= 0.01) return "success";
+  if (pendingAmount > 0) return "warning";
+  return "info";
+}
+
+function getBonusesVariant(available) {
+  if (available === null) return "muted";
+  return available ? "success" : "warning";
+}
+
+function getInvoiceVariant(status) {
+  const value = String(status || "").toLowerCase();
+  if (value.includes("pend")) return "warning";
+  if (/(pag|ok)/.test(value)) return "success";
+  if (/(cancel|fail|rech)/.test(value)) return "danger";
+  return "info";
+}
+
+function getHistoryBadge(row) {
+  const label = row.is_refund ? "Reembolso" : row.type ? row.type : "Cobro";
+  const variant = row.is_refund ? "danger" : "success";
+  return { label, variant };
 }
 
 const NAV_ITEMS = [
@@ -440,55 +603,68 @@ function TripsList({ mock, onOpen, dashboard }) {
               </tr>
             </thead>
             <tbody>
-              {filteredTrips.map((t) => {
-                const r = normalizeTripDates(t);
-                const payments = t?.payments || null;
-                const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
-                const paidAmount = typeof payments?.paid === "number" ? payments.paid : Number.NaN;
-                const pendingCandidate = typeof payments?.pending === "number" ? payments.pending : Number.NaN;
-                const pendingAmount = Number.isFinite(pendingCandidate)
-                  ? pendingCandidate
-                  : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
-                      ? Math.max(0, totalAmount - paidAmount)
-                      : Number.NaN);
-                const hasPayments = Number.isFinite(totalAmount);
-                const totalLabel = hasPayments ? euro(totalAmount) : "-";
-                const pendingLabel = Number.isFinite(pendingAmount) ? euro(pendingAmount) : "-";
-                const paymentsLabel = hasPayments
-                  ? (pendingAmount <= 0.01 ? "Pagado" : `Pendiente: ${pendingLabel}`)
-                  : "-";
-                const bonusesAvailable = typeof t?.bonuses?.available === "boolean" ? t.bonuses.available : null;
-                const bonusesLabel = bonusesAvailable === null
-                  ? "-"
-                  : (bonusesAvailable ? "Disponibles" : "No disponibles");
-                return (
-                  <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
-                    <td>{t.code || `#${t.id}`}</td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{t.title}</div>
-                      <div style={{ fontSize: 12, opacity: 0.75 }}>{t.code ? `ID ${t.id}` : `Expediente ${t.id}`}</div>
-                    </td>
-                    <td>{formatDateES(r.start)}</td>
-                    <td>{formatDateES(r.end)}</td>
-                    <td>{t.status || "-"}</td>
-                    <td style={{ textAlign: "right" }}>{totalLabel}</td>
-                    <td>{paymentsLabel}</td>
-                    <td>{bonusesLabel}</td>
-                    <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                      <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
-                        Ver detalle
-                      </button>
-                      <button
-                        className="cp-btn"
-                        style={{ whiteSpace: "nowrap" }}
-                        onClick={() => onOpen(t.id, "payments")}
-                      >
-                        Pagar
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                {filteredTrips.map((t) => {
+                  const r = normalizeTripDates(t);
+                  const payments = t?.payments || null;
+                  const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
+                  const paidAmount = typeof payments?.paid === "number" ? payments.paid : Number.NaN;
+                  const pendingCandidate = typeof payments?.pending === "number" ? payments.pending : Number.NaN;
+                  const pendingAmount = Number.isFinite(pendingCandidate)
+                    ? pendingCandidate
+                    : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
+                        ? Math.max(0, totalAmount - paidAmount)
+                        : Number.NaN);
+                  const hasPayments = Number.isFinite(totalAmount);
+                  const totalLabel = hasPayments ? euro(totalAmount) : "-";
+                  const pendingLabel = Number.isFinite(pendingAmount) ? euro(pendingAmount) : "-";
+                  const paymentsLabelText = hasPayments
+                    ? (pendingAmount <= 0.01 ? "Pagado" : "Pendiente")
+                    : "Sin datos";
+                  const paymentsVariant = getPaymentVariant(
+                    Number.isFinite(pendingAmount) ? pendingAmount : Number.NaN,
+                    hasPayments
+                  );
+                  const bonusesAvailable = typeof t?.bonuses?.available === "boolean" ? t.bonuses.available : null;
+                  const bonusesLabel = bonusesAvailable === null
+                    ? "—"
+                    : (bonusesAvailable ? "Disponibles" : "No disponibles");
+                  const bonusesVariant = getBonusesVariant(bonusesAvailable);
+                  const statusLabel = t.status || "—";
+                  const statusVariant = getStatusVariant(statusLabel);
+                  return (
+                    <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
+                      <td>{t.code || `#${t.id}`}</td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{t.title}</div>
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>{t.code ? `ID ${t.id}` : `Expediente ${t.id}`}</div>
+                      </td>
+                      <td>{formatDateES(r.start)}</td>
+                      <td>{formatDateES(r.end)}</td>
+                      <td>
+                        <BadgeLabel label={statusLabel} variant={statusVariant} />
+                      </td>
+                      <td style={{ textAlign: "right" }}>{totalLabel}</td>
+                      <td>
+                        <BadgeLabel label={paymentsLabelText} variant={paymentsVariant} />
+                      </td>
+                      <td>
+                        <BadgeLabel label={bonusesLabel} variant={bonusesVariant} />
+                      </td>
+                      <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                        <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
+                          Ver detalle
+                        </button>
+                        <button
+                          className="cp-btn"
+                          style={{ whiteSpace: "nowrap" }}
+                          onClick={() => onOpen(t.id, "payments")}
+                        >
+                          Pagar
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               {filteredTrips.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ padding: 18, opacity: 0.8 }}>
@@ -827,6 +1003,8 @@ function ServiceItem({ service, indent = false }) {
   const canVoucher = Boolean(service.actions?.voucher);
   const canPdf = Boolean(service.actions?.pdf);
   const tagLabel = (service.type || "servicio").toUpperCase();
+  const serviceType = (detail.type || service.type || "").toUpperCase();
+  const isPlaneService = serviceType === "AV";
 
   const toggleDetail = () => {
     if (!service.actions?.detail) return;
@@ -841,11 +1019,18 @@ function ServiceItem({ service, indent = false }) {
             <img src={imageUrl} alt="" loading="lazy" />
           </div>
         ) : null}
-        <div className="cp-service__main">
-          <div className="cp-service__code">
-            {detail.code || service.id || "Servicio"}
-          </div>
-          <div className="cp-service__title">{service.title || "Servicio"}</div>
+      <div className="cp-service__main">
+        <div className="cp-service__code">
+          {detail.code || service.id || "Servicio"}
+        </div>
+        <div className="cp-service__title">
+          {isPlaneService ? (
+            <span className="cp-service__title-icon" aria-hidden="true">
+              <IconPlane />
+            </span>
+          ) : null}
+          <span>{service.title || "Servicio"}</span>
+        </div>
           <div className="cp-service__dates">
             {service.date_range || "Fechas por confirmar"}
           </div>
@@ -1003,6 +1188,24 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const isPaid = pendingAmount !== null ? pendingAmount <= 0.01 : false;
   const currency = payments?.currency || "EUR";
   const mulligansUsed = payments?.mulligans_used ?? 0;
+  const totalLabel = Number.isFinite(totalAmount) ? euro(totalAmount, currency) : "—";
+  const paidLabel = Number.isFinite(paidAmount) ? euro(paidAmount, currency) : "—";
+  const pendingLabel = pendingAmount !== null && Number.isFinite(pendingAmount) ? euro(pendingAmount, currency) : "—";
+
+  const paymentKpiItems = payments
+    ? [
+        { key: "total", label: "Total", value: totalLabel, icon: <IconBriefcase />, colorClass: "is-salmon" },
+        { key: "paid", label: "Pagado", value: paidLabel, icon: <IconShieldCheck />, colorClass: "is-blue" },
+        { key: "pending", label: "Pendiente", value: pendingLabel, icon: <IconClockArrow />, colorClass: "is-green" },
+        {
+          key: "mulligans",
+          label: "Mulligans usados",
+          value: mulligansUsed.toLocaleString("es-ES"),
+          icon: <IconSparkle />,
+          colorClass: "is-lilac",
+        },
+      ]
+    : [];
 
   const bonusDisabledReason = (type) => {
     if (!isPaid) return "El viaje debe estar pagado para descargar los bonos.";
@@ -1109,33 +1312,16 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
               <div style={{ marginTop: 10 }} className="cp-meta">Aún no hay pagos asociados a este viaje.</div>
             ) : (
               <>
-                <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 12 }}>
-                  <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
-                    <div className="cp-meta">Total</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                      {euro(payments.total, currency)}
-                    </div>
-                  </div>
-
-                  <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
-                    <div className="cp-meta">Pagado</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                      {euro(payments.paid, currency)}
-                    </div>
-                  </div>
-
-                  <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
-                    <div className="cp-meta">Pendiente</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                      {euro(payments.pending, currency)}
-                    </div>
-                  </div>
-                  <div className="cp-card" style={{ background: "#fff", flex: "1 1 240px" }}>
-                    <div className="cp-meta">Mulligans usados</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                      {mulligansUsed.toLocaleString("es-ES")}
-                    </div>
-                  </div>
+                <div className="cp-kpi-card-grid">
+                  {paymentKpiItems.map((item) => (
+                    <KpiCard
+                      key={item.key}
+                      icon={item.icon}
+                      label={item.label}
+                      value={item.value}
+                      colorClass={item.colorClass}
+                    />
+                  ))}
                 </div>
 
                 <PaymentActions expediente={expediente} payments={payments} mock={mock} />
@@ -1160,17 +1346,26 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {chargeHistory.map((row) => (
-                            <tr key={row.id}>
-                              <td>{formatDateES(row.date)}</td>
-                              <td>{row.type}</td>
-                              <td>{row.concept}</td>
-                              <td>{row.payer || row.document || "—"}</td>
-                              <td className="is-right">
-                                {euro(row.is_refund ? -row.amount : row.amount, currency)}
-                              </td>
-                            </tr>
-                          ))}
+                          {chargeHistory.map((row) => {
+                            const historyBadge = getHistoryBadge(row);
+                            return (
+                              <tr key={row.id}>
+                                <td>{formatDateES(row.date)}</td>
+                                <td>
+                                  <BadgeLabel
+                                    label={historyBadge.label}
+                                    variant={historyBadge.variant}
+                                    className="cp-history-badge"
+                                  />
+                                </td>
+                                <td>{row.concept}</td>
+                                <td>{row.payer || row.document || "—"}</td>
+                                <td className="is-right">
+                                  {euro(row.is_refund ? -row.amount : row.amount, currency)}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1206,10 +1401,6 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
                   <tbody>
                     {invoices.map((inv) => {
                       const statusRaw = String(inv.status || "").trim();
-                      const statusNormalized = statusRaw.toLowerCase();
-                      let statusClass = "casanova-badge";
-                      if (statusNormalized.includes("pend")) statusClass += " casanova-badge--pending";
-                      else if (statusNormalized.includes("pag")) statusClass += " casanova-badge--pay";
                       return (
                         <tr key={inv.id}>
                           <td>{inv.title || `Factura #${inv.id}`}</td>
@@ -1218,7 +1409,7 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
                             {typeof inv.amount === "number" ? euro(inv.amount, inv.currency || "EUR") : "—"}
                           </td>
                           <td>
-                            <span className={statusClass}>{statusRaw || "—"}</span>
+                            <BadgeLabel label={statusRaw || "—"} variant={getInvoiceVariant(statusRaw)} />
                           </td>
                           <td>
                             {inv.download_url ? (
@@ -1297,6 +1488,12 @@ function MulligansView({ data }) {
   const bonus = Number(m.bonus || 0);
   const used = Number(m.used || 0);
   const ledger = Array.isArray(m.ledger) ? m.ledger : [];
+  const tierSlug = tier
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/\+/g, "_plus")
+    .replace(/-/g, "_");
 
   const tierLabel = (t) => {
     if (t === "albatross") return "Albatross";
@@ -1315,6 +1512,15 @@ function MulligansView({ data }) {
     return d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
   };
 
+  const mulliganKpiItems = [
+    { key: "balance", label: "Balance", value: points.toLocaleString("es-ES"), icon: <IconSparkle />, colorClass: "is-salmon" },
+    { key: "spend", label: "Gasto histórico", value: fmtMoney(spend), icon: <IconChartBar />, colorClass: "is-blue" },
+    { key: "sync", label: "Última sincronización", value: fmtDate(m.last_sync), icon: <IconCalendar />, colorClass: "is-lilac" },
+    { key: "earned", label: "Ganados", value: earned.toLocaleString("es-ES"), icon: <IconShieldCheck />, colorClass: "is-green" },
+    { key: "bonus", label: "Bonus", value: bonus.toLocaleString("es-ES"), icon: <IconStar />, colorClass: "is-salmon" },
+    { key: "used", label: "Usados", value: used.toLocaleString("es-ES"), icon: <IconClockArrow />, colorClass: "is-lilac" },
+  ];
+
   return (
     <div className="cp-content">
       <div className="cp-card">
@@ -1323,48 +1529,19 @@ function MulligansView({ data }) {
             <div className="cp-card-title">Tu programa Mulligans</div>
             <div className="cp-card-sub">Puntos y nivel se actualizan automáticamente con tus reservas.</div>
           </div>
-          <div className="cp-pill">{tierLabel(tier)}</div>
+          <div className={`cp-pill ${tierSlug ? `is-${tierSlug}` : ""}`}>{tierLabel(tier)}</div>
         </div>
-
-        <div className="cp-grid-3" style={{ marginTop: 14 }}>
-          <div className="cp-stat">
-            <div className="cp-stat-k">Balance</div>
-            <div className="cp-stat-v">{points.toLocaleString("es-ES")}</div>
-            <div className="cp-stat-s">Mulligans disponibles</div>
-          </div>
-
-          <div className="cp-stat">
-            <div className="cp-stat-k">Gasto histórico</div>
-            <div className="cp-stat-v">{fmtMoney(spend)}</div>
-            <div className="cp-stat-s">Define tu nivel</div>
-          </div>
-
-          <div className="cp-stat">
-            <div className="cp-stat-k">Última sincronización</div>
-            <div className="cp-stat-v">{fmtDate(m.last_sync)}</div>
-            <div className="cp-stat-s">Cuando se recalculó por última vez</div>
-          </div>
+        <div className="cp-kpi-card-grid cp-mulligans-kpi-grid">
+          {mulliganKpiItems.map((item) => (
+            <KpiCard
+              key={item.key}
+              icon={item.icon}
+              label={item.label}
+              value={item.value}
+              colorClass={item.colorClass}
+            />
+          ))}
         </div>
-
-        <div className="cp-grid-4" style={{ marginTop: 14 }}>
-          <div className="cp-mini">
-            <div className="cp-mini-k">Ganados</div>
-            <div className="cp-mini-v">{earned.toLocaleString("es-ES")}</div>
-          </div>
-          <div className="cp-mini">
-            <div className="cp-mini-k">Bonus</div>
-            <div className="cp-mini-v">{bonus.toLocaleString("es-ES")}</div>
-          </div>
-          <div className="cp-mini">
-            <div className="cp-mini-k">Usados</div>
-            <div className="cp-mini-v">{used.toLocaleString("es-ES")}</div>
-          </div>
-          <div className="cp-mini">
-            <div className="cp-mini-k">Balance</div>
-            <div className="cp-mini-v">{points.toLocaleString("es-ES")}</div>
-          </div>
-        </div>
-
         <div style={{ marginTop: 14 }}>
           <Notice variant="info" title="Cómo funciona">
             Los beneficios se activan con una reserva real. Si un año no viajas, mantienes tu nivel, pero no se “dispara” el beneficio.
