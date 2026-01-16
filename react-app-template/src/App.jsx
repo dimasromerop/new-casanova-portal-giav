@@ -1027,54 +1027,55 @@ function ServiceItem({ service, indent = false }) {
   const showNotes = notesText !== "" && notesText !== normalizedBonus;
   const segments = Array.isArray(detailPayload.segments) ? detailPayload.segments : [];
 
+  const shouldShowRow = (expectedType) => !semanticType || semanticType === expectedType;
   const extraDetailRows = [
     {
       key: "rooms",
       label: "Habitaciones",
       value: detailPayload.rooms,
-      show: semanticType === "hotel",
+      show: shouldShowRow("hotel"),
     },
     {
       key: "board",
       label: "Régimen",
       value: detailPayload.board,
-      show: semanticType === "hotel",
+      show: shouldShowRow("hotel"),
     },
     {
       key: "rooming",
       label: "Rooming",
       value: detailPayload.rooming,
-      show: semanticType === "hotel",
+      show: shouldShowRow("hotel"),
     },
     {
       key: "players",
       label: "Jugadores",
       value: detailPayload.players,
-      show: semanticType === "golf",
+      show: shouldShowRow("golf"),
     },
     {
       key: "route",
       label: "Trayecto",
       value: detailPayload.route,
-      show: semanticType === "flight",
+      show: shouldShowRow("flight"),
     },
     {
       key: "flight_code",
       label: "Código de vuelo",
       value: detailPayload.flight_code,
-      show: semanticType === "flight",
+      show: shouldShowRow("flight"),
     },
     {
       key: "schedule",
       label: "Horario",
       value: detailPayload.schedule,
-      show: semanticType === "flight",
+      show: shouldShowRow("flight"),
     },
     {
       key: "passengers",
       label: "Pasajeros",
       value: detailPayload.passengers,
-      show: semanticType === "flight",
+      show: shouldShowRow("flight"),
     },
   ].filter((row) => row.show && row.value !== undefined && row.value !== null && String(row.value).trim() !== "");
 
