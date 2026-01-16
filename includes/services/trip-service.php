@@ -416,8 +416,8 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     $rooms = function_exists('casanova_reserva_room_types_text') ? casanova_reserva_room_types_text($r) : '';
     if ($rooms === '') {
       $rooms = self::pick_first([
-        self::read_prop($r, ['Habitaciones', 'TipoHabitacion', 'TiposHabitacion']),
-        self::read_prop($dx, ['Habitaciones', 'TipoHabitacion', 'TiposHabitacion']),
+        self::read_prop($r, ['Habitaciones', 'TipoHabitacion', 'TiposHabitacion', 'Distribucion', 'Distribución']),
+        self::read_prop($dx, ['Habitaciones', 'TipoHabitacion', 'TiposHabitacion', 'Distribucion', 'Distribución']),
       ]);
     }
 
@@ -427,8 +427,8 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     ]);
 
     $rooming = self::pick_first([
-      self::read_prop($r, ['Rooming', 'TextoRooming']),
-      self::read_prop($dx, ['Rooming', 'TextoRooming']),
+      self::read_prop($r, ['Rooming', 'TextoRooming', 'RoomingText']),
+      self::read_prop($dx, ['Rooming', 'TextoRooming', 'RoomingText']),
     ]);
 
     return [
@@ -496,12 +496,31 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     }
 
     $passengers = self::build_passengers_summary($r, $mapped);
+    $segments = self::map_flight_segments($r);
+    if ($route === '' && !empty($segments)) {
+      $route = $segments[0]['route'] ?? '';
+    }
+    if ($flight_code === '' && !empty($segments)) {
+      $flight_code = $segments[0]['code'] ?? '';
+    }
+    if ($schedule === '' && !empty($segments)) {
+      $schedule = $segments[0]['schedule'] ?? '';
+    }
 
     return [
       'route' => $route,
       'flight_code' => $flight_code,
       'schedule' => $schedule,
       'passengers' => $passengers,
+      'segments' => array_values(array_filter(array_map(function($segment) {
+        $code = trim((string) ($segment['code'] ?? ''));
+        $route = trim((string) ($segment['route'] ?? ''));
+        $schedule = trim((string) ($segment['schedule'] ?? ''));
+        $parts = array_filter([$code, $route, $schedule], function($val) {
+          return $val !== '';
+        });
+        return $parts ? implode(' ¶ú ', $parts) : '';
+      }, $segments))),
     ];
   }
 
@@ -519,10 +538,6 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       if (!$child && isset($r->NumNinos)) $child = (int) $r->NumNinos;
     }
 
-    if ($pax > 0) {
-      return (string) $pax;
-    }
-
     $parts = [];
     if ($adult > 0) {
       $parts[] = sprintf(__('%d adultos', 'casanova-portal'), $adult);
@@ -531,7 +546,111 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       $parts[] = sprintf(__('%d niños', 'casanova-portal'), $child);
     }
 
-    return implode(' · ', $parts);
+    if (!empty($parts)) {
+      return implode(' ¶ú ', $parts);
+    }
+
+    if ($pax > 0) {
+      return sprintf(__('%d pasajeros', 'casanova-portal'), $pax);
+    }
+
+    return '';
+  }
+
+  /**
+   * @return array<int,array<string,string>>
+   */
+  private static function map_flight_segments($r): array {
+    if (!is_object($r)) return [];
+
+    $segment_sources = [
+      $r->Segmentos ?? null,
+      $r->BilleteSegmentos ?? null,
+      $r->SegmentosBillete ?? null,
+      $r->SegmentInfo ?? null,
+    ];
+
+    $dx = $r->DatosExternos ?? null;
+    if (is_object($dx)) {
+      $segment_sources[] = $dx->Segmentos ?? null;
+      $segment_sources[] = $dx->SegmentInfo ?? null;
+    }
+
+    $segments = [];
+    foreach ($segment_sources as $source) {
+      foreach (self::normalize_segment_list($source) as $segment) {
+        if (!is_object($segment)) continue;
+        $info = is_object($segment->SegmentInfo ?? null) ? $segment->SegmentInfo : $segment;
+
+        $code = self::pick_first([
+          self::read_prop($info, ['Codigo', 'codigo', 'Vuelo', 'FlightNumber', 'NumeroVuelo']),
+          self::read_prop($segment, ['Codigo', 'codigo', 'Vuelo', 'FlightNumber', 'NumeroVuelo']),
+        ]);
+
+        $origin = self::pick_first([
+          self::read_prop($info, ['LugarSalida', 'Origen', 'CiudadOrigen', 'AeropuertoOrigen', 'AirportOrigen']),
+          self::read_prop($segment, ['LugarSalida', 'Origen', 'CiudadOrigen', 'AeropuertoOrigen', 'AirportOrigen']),
+        ]);
+        $destination = self::pick_first([
+          self::read_prop($info, ['LugarLlegada', 'Destino', 'CiudadDestino', 'AeropuertoDestino', 'AirportDestino']),
+          self::read_prop($segment, ['LugarLlegada', 'Destino', 'CiudadDestino', 'AeropuertoDestino', 'AirportDestino']),
+        ]);
+        $route = trim($origin . ($origin && $destination ? ' → ' : '') . $destination);
+
+        $departure = self::pick_first([
+          self::read_prop($info, ['FechaSalida', 'HoraSalida', 'SalidaHora']),
+          self::read_prop($segment, ['FechaSalida', 'HoraSalida', 'SalidaHora']),
+        ]);
+        $arrival = self::pick_first([
+          self::read_prop($info, ['FechaLlegada', 'HoraLlegada', 'LlegadaHora']),
+          self::read_prop($segment, ['FechaLlegada', 'HoraLlegada', 'LlegadaHora']),
+        ]);
+        $departure = self::normalize_time($departure);
+        $arrival = self::normalize_time($arrival);
+        $schedule = trim($departure . ($departure && $arrival ? ' – ' : '') . $arrival);
+
+        if ($code === '' && $route === '' && $schedule === '') {
+          continue;
+        }
+
+        $segments[] = [
+          'code' => $code,
+          'route' => $route,
+          'schedule' => $schedule,
+        ];
+      }
+    }
+
+    return $segments;
+  }
+
+  /**
+   * @return array<int,object>
+   */
+  private static function normalize_segment_list($source): array {
+    if (!$source) return [];
+    if (is_object($source)) {
+      foreach (['WsBilleteSegmento', 'WsSegmento', 'Segmento', 'Tramo', 'Segment'] as $key) {
+        if (isset($source->$key)) {
+          $source = $source->$key;
+          break;
+        }
+      }
+    }
+    if (is_object($source)) {
+      return [$source];
+    }
+    if (is_array($source)) {
+      return $source;
+    }
+    return [];
+  }
+
+  private static function normalize_time($value): string {
+    if ($value === null || $value === '') return '';
+    $ts = strtotime((string) $value);
+    if ($ts === false) return trim((string) $value);
+    return gmdate('H:i', $ts);
   }
 
   private static function normalize_date($value): ?string {
