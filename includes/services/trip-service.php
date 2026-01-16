@@ -324,12 +324,6 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     $title = (string) ($m['descripcion'] ?? ($r->Descripcion ?? 'Servicio'));
     $rid = (int) ($r->Id ?? 0);
     $price = null;
-    $observations = self::pick_first([
-      self::read_prop($r, ['Observaciones', 'Observacion', 'Notas', 'Nota']),
-      self::read_prop($r, ['TextoBono', 'Texto']),
-      self::read_prop($r, ['Comentarios', 'Comentario']),
-    ]);
-
     // Optional WP-side media (hotel/golf images) if there is mapping GIAV→WP.
     $media = function_exists('casanova_portal_resolve_service_media')
       ? casanova_portal_resolve_service_media(
@@ -352,7 +346,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     $voucher_urls = $allow_voucher ? self::voucher_urls($expediente_id, $rid) : ['view' => '', 'pdf' => ''];
 
     $semantic_type = self::resolve_semantic_type($tipo, $r);
-    $details = self::map_service_details($semantic_type, $r, $m, $observations, $expediente_id, $rid);
+    $details = self::map_service_details($semantic_type, $r, $m, $expediente_id, $rid);
 
     return [
       'id' => $code ?: ('srv-' . $rid),
@@ -364,7 +358,6 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       'date_from' => $date_from,
       'date_to' => $date_to,
       'date_range' => $dates,
-      'observations' => $observations,
       'details' => $details,
       'price' => $price,
       'included' => $included,
@@ -377,7 +370,6 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
         'dates' => $dates,
         'locator' => (string) ($r->Localizador ?? ''),
         'bonus_text' => trim((string) ($r->TextoBono ?? '')),
-        'observations' => $observations,
         'details' => $details,
       ],
     ];
@@ -399,12 +391,12 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
    * @param array<string,mixed> $mapped
    * @return array<string,mixed>
    */
-  private static function map_service_details(string $semantic_type, $r, array $mapped, string $observations, int $expediente_id, int $id_reserva): array {
+  private static function map_service_details(string $semantic_type, $r, array $mapped, int $expediente_id, int $id_reserva): array {
     return match ($semantic_type) {
       'hotel' => self::map_hotel_service($r, $expediente_id, $id_reserva),
-      'golf' => self::map_golf_service($r, $mapped, $observations),
+      'golf' => self::map_golf_service($r, $mapped),
       'flight' => self::map_flight_service($r, $mapped),
-      default => ['notes' => $observations],
+      default => [],
     };
   }
 
@@ -484,7 +476,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
    * @param array<string,mixed> $mapped
    * @return array<string,mixed>
    */
-  private static function map_golf_service($r, array $mapped, string $observations): array {
+  private static function map_golf_service($r, array $mapped): array {
     $players = 0;
     if (!empty($mapped['pax'])) {
       $players = (int) $mapped['pax'];
@@ -494,7 +486,6 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
 
     return [
       'players' => $players,
-      'notes' => $observations,
     ];
   }
 
@@ -839,6 +830,9 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     return '';
   }
 
+  /**
+   * @param object|null $reservation
+   */
   /**
    * @return array{detail:bool,voucher:bool,pdf:bool}
    */

@@ -1014,17 +1014,6 @@ function ServiceItem({ service, indent = false }) {
   const isPlaneService = serviceType === "AV";
   const semanticType = String(service.semantic_type || "").toLowerCase();
   const detailPayload = detail.details || service.details || {};
-  const notesCandidate =
-    typeof detail.observations === "string"
-      ? detail.observations
-      : typeof service.observations === "string"
-        ? service.observations
-        : typeof detailPayload.notes === "string"
-          ? detailPayload.notes
-          : "";
-  const notesText = notesCandidate.trim();
-  const normalizedBonus = bonusText.trim();
-  const showNotes = notesText !== "" && notesText !== normalizedBonus;
   const segments = Array.isArray(detailPayload.segments) ? detailPayload.segments : [];
 
   const shouldShowRow = (expectedType) => !semanticType || semanticType === expectedType;
@@ -1172,15 +1161,6 @@ function ServiceItem({ service, indent = false }) {
               </div>
             ))}
           </div>
-          {showNotes ? (
-            <>
-              <div className="cp-service__divider" />
-              <div>
-                <strong>Observaciones:</strong>
-                <p className="cp-service__bonus">{notesText}</p>
-              </div>
-            </>
-          ) : null}
           {segments.length > 0 ? (
             <>
               <div className="cp-service__divider" />
