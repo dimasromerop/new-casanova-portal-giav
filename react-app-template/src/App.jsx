@@ -1116,20 +1116,37 @@ function ServiceItem({ service, indent = false }) {
   );
 }
 
-function ServiceList({ services, indent = false }) {
-  if (!Array.isArray(services) || services.length === 0) return null;
-  return (
-    <div className="cp-service-list">
-      {services.map((service, index) => (
-        <ServiceItem
-          key={service.id || `${service.type || "srv"}-${index}`}
-          service={service}
-          indent={indent}
-        />
-      ))}
-    </div>
-  );
-}
+  function getServiceSortKey(service) {
+    if (!service) return "";
+    const candidate = service.detail?.code ?? service.id;
+    if (candidate === null || candidate === undefined) return "";
+    return String(candidate).trim();
+  }
+
+  function compareServicesByGiavCode(a, b) {
+    const keyA = getServiceSortKey(a);
+    const keyB = getServiceSortKey(b);
+    return keyA.localeCompare(keyB, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+  }
+
+  function ServiceList({ services, indent = false }) {
+    if (!Array.isArray(services) || services.length === 0) return null;
+    const sortedServices = useMemo(() => [...services].sort(compareServicesByGiavCode), [services]);
+    return (
+      <div className="cp-service-list">
+        {sortedServices.map((service, index) => (
+          <ServiceItem
+            key={service.id || `${service.type || "srv"}-${index}`}
+            service={service}
+            indent={indent}
+          />
+        ))}
+      </div>
+    );
+  }
 
 function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const trips = Array.isArray(dashboard?.trips) ? dashboard.trips : [];
