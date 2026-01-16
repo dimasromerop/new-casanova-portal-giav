@@ -48,14 +48,44 @@ class Casanova_Trip_Service {
             $idF = (int) ($f->Id ?? $f->ID ?? 0);
             if ($idF <= 0) continue;
             $num = (string) ($f->Numero ?? $f->NumFactura ?? $f->Codigo ?? ('F' . $idF));
-            $fecha = (string) ($f->Fecha ?? $f->FechaFactura ?? '');
-            $iso = $fecha ? gmdate('Y-m-d', strtotime($fecha)) : null;
 
-            $importe = null;
-            foreach (['Importe', 'Total', 'ImporteTotal', 'ImporteFactura'] as $k) {
-              if (isset($f->$k) && $f->$k !== '') { $importe = (float) $f->$k; break; }
+            $dateFields = ['FechaEmision', 'FechaFactura', 'Fecha'];
+            $iso = null;
+            foreach ($dateFields as $field) {
+              if (!empty($f->$field)) {
+                $parsed = strtotime((string) $f->$field);
+                if ($parsed !== false) {
+                  $iso = gmdate('Y-m-d', $parsed);
+                  break;
+                }
+              }
             }
-            $estado = (string) ($f->Estado ?? $f->Situacion ?? '');
+
+            $datosExternos = isset($f->DatosExternos) && is_object($f->DatosExternos) ? $f->DatosExternos : null;
+            $importe = null;
+            if ($datosExternos && isset($datosExternos->TotalFactura) && $datosExternos->TotalFactura !== '') {
+              $importe = (float) $datosExternos->TotalFactura;
+            } else {
+              foreach (['Importe', 'Total', 'ImporteTotal', 'ImporteFactura'] as $key) {
+                if (isset($f->$key) && $f->$key !== '') { $importe = (float) $f->$key; break; }
+              }
+            }
+
+            $pendiente = null;
+            if ($datosExternos && isset($datosExternos->PendienteCobro) && $datosExternos->PendienteCobro !== '') {
+              $pendiente = (float) $datosExternos->PendienteCobro;
+            } elseif (isset($f->PendienteCobro) && $f->PendienteCobro !== '') {
+              $pendiente = (float) $f->PendienteCobro;
+            }
+
+            $estado = '';
+            if (!empty($f->Estado)) {
+              $estado = (string) $f->Estado;
+            } elseif (!empty($f->Situacion)) {
+              $estado = (string) $f->Situacion;
+            } elseif ($pendiente !== null) {
+              $estado = $pendiente > 0.01 ? __('Pendiente', 'casanova-portal') : __('Pagada', 'casanova-portal');
+            }
 
             $nonce = wp_create_nonce('casanova_invoice_pdf_' . $expediente_id . '_' . $idF);
             $download_url = add_query_arg([
