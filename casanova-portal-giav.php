@@ -144,6 +144,7 @@ add_action('plugins_loaded', function () {
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-oficina.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-proveedores.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-pasajeros.php';
+  require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-billetes.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-facturas.php';
 
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/helpers-http.php';

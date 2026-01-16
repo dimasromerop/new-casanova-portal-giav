@@ -352,7 +352,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     $voucher_urls = $allow_voucher ? self::voucher_urls($expediente_id, $rid) : ['view' => '', 'pdf' => ''];
 
     $semantic_type = self::resolve_semantic_type($tipo, $r);
-    $details = self::map_service_details($semantic_type, $r, $m, $observations);
+    $details = self::map_service_details($semantic_type, $r, $m, $observations, $expediente_id, $rid);
 
     return [
       'id' => $code ?: ('srv-' . $rid),
@@ -399,9 +399,9 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
    * @param array<string,mixed> $mapped
    * @return array<string,mixed>
    */
-  private static function map_service_details(string $semantic_type, $r, array $mapped, string $observations): array {
+  private static function map_service_details(string $semantic_type, $r, array $mapped, string $observations, int $expediente_id, int $id_reserva): array {
     return match ($semantic_type) {
-      'hotel' => self::map_hotel_service($r),
+      'hotel' => self::map_hotel_service($r, $expediente_id, $id_reserva),
       'golf' => self::map_golf_service($r, $mapped, $observations),
       'flight' => self::map_flight_service($r, $mapped),
       default => ['notes' => $observations],
@@ -411,7 +411,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
   /**
    * @return array<string,string>
    */
-  private static function map_hotel_service($r): array {
+  private static function map_hotel_service($r, int $expediente_id, int $id_reserva): array {
     $dx = is_object($r) ? ($r->DatosExternos ?? null) : null;
     $rooms = function_exists('casanova_reserva_room_types_text') ? casanova_reserva_room_types_text($r) : '';
     if ($rooms === '') {
@@ -430,6 +430,48 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       self::read_prop($r, ['Rooming', 'TextoRooming', 'RoomingText']),
       self::read_prop($dx, ['Rooming', 'TextoRooming', 'RoomingText']),
     ]);
+
+    // IMPORTANT (GIAV): en muchos casos, la distribución de habitaciones y el texto de rooming
+    // NO vienen en la reserva del expediente, sino en PasajeroReserva_SEARCH (misma lógica que los bonos).
+    // Reutilizamos esa vía como fallback (con caché por transient en casanova_giav_pasajeros_por_reserva).
+    if (($rooms === '' || $rooming === '') && function_exists('casanova_giav_pasajeros_para_bono')) {
+      $pasajeros = casanova_giav_pasajeros_para_bono((int)$id_reserva, (int)$expediente_id);
+      if (is_array($pasajeros) && !empty($pasajeros)) {
+        if ($rooms === '' && function_exists('casanova_reserva_room_types_text')) {
+          $parts = [];
+          foreach ($pasajeros as $p) {
+            if (!is_object($p)) continue;
+            // A veces viene en el propio PasajeroReserva, otras en DatosExternos
+            $parts[] = casanova_reserva_room_types_text($p);
+            $dxp = $p->DatosExternos ?? null;
+            if (is_object($dxp)) {
+              $parts[] = casanova_reserva_room_types_text($dxp);
+            }
+          }
+          $parts = array_values(array_filter(array_map(function($x) {
+            $x = trim((string)$x);
+            return $x !== '' ? preg_replace('/\s+/', ' ', $x) : '';
+          }, $parts)));
+          $parts = array_values(array_unique($parts));
+          if (!empty($parts)) {
+            // Si hay varios, los concatenamos. Normalmente será uno solo.
+            $rooms = implode(', ', $parts);
+          }
+        }
+
+        if ($rooming === '') {
+          foreach ($pasajeros as $p) {
+            if (!is_object($p)) continue;
+            $dxp = $p->DatosExternos ?? null;
+            $rooming = self::pick_first([
+              self::read_prop($p, ['Rooming', 'TextoRooming', 'RoomingText']),
+              self::read_prop($dxp, ['Rooming', 'TextoRooming', 'RoomingText']),
+            ]);
+            if ($rooming !== '') break;
+          }
+        }
+      }
+    }
 
     return [
       'rooms' => $rooms,
@@ -476,10 +518,15 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       $route = trim($origin . ($origin && $destination ? ' → ' : '') . $destination);
     }
 
+    // Importante: el "codigo" interno de la reserva (mapped['codigo']) NO es el código de vuelo.
     $flight_code = self::pick_first([
       self::read_prop($r, ['CodigoVuelo', 'Vuelo', 'FlightNumber', 'NumeroVuelo']),
       self::read_prop($dx, ['CodigoVuelo', 'Vuelo', 'FlightNumber', 'NumeroVuelo']),
-      (string) ($mapped['codigo'] ?? ''),
+    ]);
+
+    $locator = self::pick_first([
+      self::read_prop($r, ['Localizador', 'PNR', 'Referencia', 'RecordLocator']),
+      self::read_prop($dx, ['Localizador', 'PNR', 'Referencia', 'RecordLocator']),
     ]);
 
     $departure = self::pick_first([
@@ -512,14 +559,17 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       'flight_code' => $flight_code,
       'schedule' => $schedule,
       'passengers' => $passengers,
+      'locator' => $locator,
       'segments' => array_values(array_filter(array_map(function($segment) {
         $code = trim((string) ($segment['code'] ?? ''));
         $route = trim((string) ($segment['route'] ?? ''));
         $schedule = trim((string) ($segment['schedule'] ?? ''));
-        $parts = array_filter([$code, $route, $schedule], function($val) {
+        $airline = trim((string) ($segment['airline'] ?? ''));
+        $parts = array_filter([$airline, $code, $route, $schedule], function($val) {
           return $val !== '';
         });
-        return $parts ? implode(' ¶ú ', $parts) : '';
+        // Separador estable para UI.
+        return $parts ? implode(' · ', $parts) : '';
       }, $segments))),
     ];
   }
@@ -547,7 +597,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
     }
 
     if (!empty($parts)) {
-      return implode(' ¶ú ', $parts);
+      return implode(' · ', $parts);
     }
 
     if ($pax > 0) {
@@ -597,17 +647,20 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
         ]);
         $route = trim($origin . ($origin && $destination ? ' → ' : '') . $destination);
 
-        $departure = self::pick_first([
+        $departure_raw = self::pick_first([
           self::read_prop($info, ['FechaSalida', 'HoraSalida', 'SalidaHora']),
           self::read_prop($segment, ['FechaSalida', 'HoraSalida', 'SalidaHora']),
         ]);
-        $arrival = self::pick_first([
+        $arrival_raw = self::pick_first([
           self::read_prop($info, ['FechaLlegada', 'HoraLlegada', 'LlegadaHora']),
           self::read_prop($segment, ['FechaLlegada', 'HoraLlegada', 'LlegadaHora']),
         ]);
-        $departure = self::normalize_time($departure);
-        $arrival = self::normalize_time($arrival);
-        $schedule = trim($departure . ($departure && $arrival ? ' – ' : '') . $arrival);
+        $schedule = self::format_segment_schedule($departure_raw, $arrival_raw);
+
+        $airline = self::pick_first([
+          self::read_prop($info, ['Compania', 'Aerolinea', 'Airline']),
+          self::read_prop($segment, ['Compania', 'Aerolinea', 'Airline']),
+        ]);
 
         if ($code === '' && $route === '' && $schedule === '') {
           continue;
@@ -617,7 +670,56 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
           'code' => $code,
           'route' => $route,
           'schedule' => $schedule,
+          'airline' => $airline,
         ];
+      }
+    }
+
+    // Si la reserva no trae segmentos, los sacamos de BilleteSegmento_SEARCH.
+    if (empty($segments) && function_exists('casanova_giav_billetes_por_reserva') && function_exists('casanova_giav_billete_segmentos_por_billetes')) {
+      $idReserva = (int) ($r->Id ?? $r->ID ?? 0);
+      if ($idReserva > 0) {
+        $billetes = casanova_giav_billetes_por_reserva($idReserva, 50, 0);
+        if (!is_wp_error($billetes) && is_array($billetes) && !empty($billetes)) {
+          $ids = [];
+          foreach ($billetes as $b) {
+            if (!is_object($b)) continue;
+            $idB = (int) ($b->Id ?? $b->ID ?? 0);
+            if ($idB > 0) $ids[] = $idB;
+          }
+
+          if (!empty($ids)) {
+            $segObjs = casanova_giav_billete_segmentos_por_billetes(array_values(array_unique($ids)), 100, 0);
+            if (!is_wp_error($segObjs) && is_array($segObjs)) {
+              foreach ($segObjs as $ws) {
+                if (!is_object($ws)) continue;
+                $info = is_object($ws->SegmentInfo ?? null) ? $ws->SegmentInfo : null;
+                if (!$info) continue;
+
+                $code = self::read_prop($info, ['Codigo']);
+                $origin = self::read_prop($info, ['LugarSalida']);
+                $destination = self::read_prop($info, ['LugarLlegada']);
+                $route = trim($origin . ($origin && $destination ? ' → ' : '') . $destination);
+
+                $schedule = self::format_segment_schedule(
+                  self::read_prop($info, ['FechaSalida']),
+                  self::read_prop($info, ['FechaLlegada'])
+                );
+
+                $airline = self::read_prop($info, ['Compania']);
+
+                if ($code === '' && $route === '' && $schedule === '') continue;
+
+                $segments[] = [
+                  'code' => (string)$code,
+                  'route' => (string)$route,
+                  'schedule' => (string)$schedule,
+                  'airline' => (string)$airline,
+                ];
+              }
+            }
+          }
+        }
       }
     }
 
@@ -644,6 +746,59 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       return $source;
     }
     return [];
+  }
+
+  /**
+   * Formatea un horario de tramo con fecha + hora cuando sea posible.
+   *
+   * - Si ambas fechas existen y son el mismo día: "16/01/2026 10:30 – 11:45"
+   * - Si son días distintos: "16/01/2026 23:10 – 17/01/2026 01:05"
+   * - Si solo existe una: "16/01/2026 10:30"
+   */
+  private static function format_segment_schedule($departure_raw, $arrival_raw): string {
+    $dep_raw = trim((string) ($departure_raw ?? ''));
+    $arr_raw = trim((string) ($arrival_raw ?? ''));
+
+    $dep_ts = $dep_raw !== '' ? strtotime($dep_raw) : false;
+    $arr_ts = $arr_raw !== '' ? strtotime($arr_raw) : false;
+
+    // Fallback: si no se puede parsear, mantenemos lo que venga pero intentamos al menos mostrar hora.
+    if ($dep_ts === false && $arr_ts === false) {
+      $dep = self::normalize_time($dep_raw);
+      $arr = self::normalize_time($arr_raw);
+      return trim($dep . ($dep && $arr ? ' – ' : '') . $arr);
+    }
+
+    $date_fmt = 'd/m/Y';
+    $time_fmt = 'H:i';
+    $dt_fmt = $date_fmt . ' ' . $time_fmt;
+
+    $fmt_date = function($ts) use ($date_fmt) {
+      if ($ts === false) return '';
+      return function_exists('wp_date') ? wp_date($date_fmt, $ts) : date($date_fmt, $ts);
+    };
+    $fmt_time = function($ts) use ($time_fmt) {
+      if ($ts === false) return '';
+      return function_exists('wp_date') ? wp_date($time_fmt, $ts) : date($time_fmt, $ts);
+    };
+    $fmt_dt = function($ts) use ($dt_fmt) {
+      if ($ts === false) return '';
+      return function_exists('wp_date') ? wp_date($dt_fmt, $ts) : date($dt_fmt, $ts);
+    };
+
+    if ($dep_ts !== false && $arr_ts !== false) {
+      $dep_date = $fmt_date($dep_ts);
+      $arr_date = $fmt_date($arr_ts);
+      if ($dep_date !== '' && $dep_date === $arr_date) {
+        return trim($dep_date . ' ' . $fmt_time($dep_ts) . ' – ' . $fmt_time($arr_ts));
+      }
+      return trim($fmt_dt($dep_ts) . ' – ' . $fmt_dt($arr_ts));
+    }
+
+    if ($dep_ts !== false) {
+      return trim($fmt_dt($dep_ts));
+    }
+    return trim($fmt_dt($arr_ts));
   }
 
   private static function normalize_time($value): string {
