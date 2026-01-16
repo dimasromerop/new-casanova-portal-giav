@@ -1012,6 +1012,60 @@ function ServiceItem({ service, indent = false }) {
   const tagLabel = (service.type || "servicio").toUpperCase();
   const serviceType = (detail.type || service.type || "").toUpperCase();
   const isPlaneService = serviceType === "AV";
+  const semanticType = String(service.semantic_type || "").toLowerCase();
+  const detailPayload = detail.details || service.details || {};
+  const notesText = typeof detailPayload.notes === "string" ? detailPayload.notes.trim() : "";
+
+  const extraDetailRows = [
+    {
+      key: "rooms",
+      label: "Habitaciones",
+      value: detailPayload.rooms,
+      show: semanticType === "hotel",
+    },
+    {
+      key: "board",
+      label: "Régimen",
+      value: detailPayload.board,
+      show: semanticType === "hotel",
+    },
+    {
+      key: "rooming",
+      label: "Rooming",
+      value: detailPayload.rooming,
+      show: semanticType === "hotel",
+    },
+    {
+      key: "players",
+      label: "Jugadores",
+      value: detailPayload.players,
+      show: semanticType === "golf",
+    },
+    {
+      key: "route",
+      label: "Trayecto",
+      value: detailPayload.route,
+      show: semanticType === "flight",
+    },
+    {
+      key: "flight_code",
+      label: "Código de vuelo",
+      value: detailPayload.flight_code,
+      show: semanticType === "flight",
+    },
+    {
+      key: "schedule",
+      label: "Horario",
+      value: detailPayload.schedule,
+      show: semanticType === "flight",
+    },
+    {
+      key: "passengers",
+      label: "Pasajeros",
+      value: detailPayload.passengers,
+      show: semanticType === "flight",
+    },
+  ].filter((row) => row.show && row.value !== undefined && row.value !== null && String(row.value).trim() !== "");
 
   const toggleDetail = () => {
     if (!service.actions?.detail) return;
@@ -1100,7 +1154,21 @@ function ServiceItem({ service, indent = false }) {
                 <strong>PVP:</strong> {euro(price)}
               </div>
             ) : null}
+            {extraDetailRows.map((row) => (
+              <div key={row.key}>
+                <strong>{row.label}:</strong> {row.value}
+              </div>
+            ))}
           </div>
+          {notesText ? (
+            <>
+              <div className="cp-service__divider" />
+              <div>
+                <strong>Observaciones:</strong>
+                <p className="cp-service__bonus">{notesText}</p>
+              </div>
+            </>
+          ) : null}
           {bonusText ? (
             <>
               <div className="cp-service__divider" />
