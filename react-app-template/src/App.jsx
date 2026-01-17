@@ -548,28 +548,86 @@ function Topbar({ title, chip, onRefresh, isRefreshing }) {
 }
 
 /* ===== Views ===== */
+function buildFallbackYears() {
+  const currentYear = new Date().getFullYear();
+  const minYear = Math.max(2015, currentYear - 5);
+  const years = [];
+  for (let year = currentYear + 1; year >= minYear; year -= 1) {
+    years.push(String(year));
+  }
+  return years;
+}
+
 function TripsList({ mock, onOpen, dashboard }) {
-  const trips = Array.isArray(dashboard?.trips) ? dashboard.trips : [];
-  const years = Array.from(
-    new Set(
-      trips
-        .map((t) => (t?.date_range || "").match(/(\d{4})/g)?.[0])
-        .filter(Boolean)
-    )
-  ).sort();
+  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [years, setYears] = useState(() => buildFallbackYears());
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const defaultYear = years.includes(String(new Date().getFullYear()))
-    ? String(new Date().getFullYear())
-    : (years[0] || String(new Date().getFullYear()));
+  useEffect(() => {
+    if (mock) return;
+    let active = true;
+    setLoading(true);
+    setError("");
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        if (year) {
+          params.set("year", year);
+        }
+        const query = params.toString();
+        const data = await api(`/expedientes${query ? `?${query}` : ""}`);
+        if (!active) return;
+        setTrips(Array.isArray(data.items) ? data.items : []);
+        const serverYears = Array.isArray(data.years) && data.years.length
+          ? data.years.map((value) => String(value))
+          : buildFallbackYears();
+        setYears(serverYears);
+        if (serverYears.length && !serverYears.includes(year)) {
+          setYear(serverYears[0]);
+        }
+      } catch (err) {
+        if (!active) return;
+        setError(err?.message || "No se han podido cargar los viajes.");
+        setTrips([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [year, mock]);
 
-  const [year, setYear] = useState(defaultYear);
+  useEffect(() => {
+    if (!mock) return;
+    const mockTrips = Array.isArray(dashboard?.trips) ? dashboard.trips : [];
+    setTrips(mockTrips);
+    setError("");
+    setLoading(false);
+    const extractedYears = Array.from(
+      new Set(
+        mockTrips
+          .map((t) => (t?.date_range || "").match(/(\d{4})/g)?.[0])
+          .filter(Boolean)
+      )
+    ).sort((a, b) => b.localeCompare(a));
+    if (extractedYears.length) {
+      setYears(extractedYears);
+      if (!extractedYears.includes(year)) {
+        setYear(extractedYears[0]);
+      }
+    } else {
+      setYears(buildFallbackYears());
+    }
+  }, [mock, dashboard, year]);
 
-  const filteredTrips = year ? trips.filter((t) => String(t?.date_range || "").includes(year)) : trips;
-
+  const hasTrips = trips.length > 0;
 
   return (
     <div className="cp-content" style={{ maxWidth: 1600, width: "100%", margin: "0 auto", paddingTop: 8 }}>
-            <div className="cp-card" style={{ background: "#fff" }}>
+      <div className="cp-card" style={{ background: "#fff" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
           <div className="cp-card-title" style={{ margin: 0 }}>Tus viajes</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -580,114 +638,119 @@ function TripsList({ mock, onOpen, dashboard }) {
               className="cp-select"
               style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}
             >
-              {years.map((y) => (
-                <option key={y} value={y}>{y}</option>
+              {years.map((optionYear) => (
+                <option key={optionYear} value={optionYear}>{optionYear}</option>
               ))}
             </select>
           </div>
         </div>
-
+        {error ? (
+          <Notice variant="warn" title="Error al cargar los viajes">
+            {error}
+          </Notice>
+        ) : null}
         <div className="cp-table-wrap" style={{ marginTop: 14 }}>
-          <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
-                <th style={{ width: 120 }}>Expediente</th>
-                <th>Viaje</th>
-                <th style={{ width: 140 }}>Inicio</th>
-                <th style={{ width: 140 }}>Fin</th>
-                <th style={{ width: 120 }}>Estado</th>
-                <th style={{ width: 110, textAlign: "right" }}>Total</th>
-                <th style={{ width: 160 }}>Pagos</th>
-                <th style={{ width: 120 }}>Bonos</th>
-                <th style={{ width: 180 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-                {filteredTrips.map((t) => {
-                  const r = normalizeTripDates(t);
-                  const payments = t?.payments || null;
-                  const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
-                  const paidAmount = typeof payments?.paid === "number" ? payments.paid : Number.NaN;
-                  const pendingCandidate = typeof payments?.pending === "number" ? payments.pending : Number.NaN;
-                  const pendingAmount = Number.isFinite(pendingCandidate)
-                    ? pendingCandidate
-                    : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
-                        ? Math.max(0, totalAmount - paidAmount)
-                        : Number.NaN);
-                  const hasPayments = Number.isFinite(totalAmount);
-                  const currencyForTrip = payments?.currency || "EUR";
-                  const totalLabel = hasPayments ? euro(totalAmount, currencyForTrip) : "-";
-                  const pendingLabel = Number.isFinite(pendingAmount) ? euro(pendingAmount, currencyForTrip) : "-";
-                  const paidLabel = Number.isFinite(paidAmount) ? euro(paidAmount, currencyForTrip) : "-";
-                  const paymentsLabelText = hasPayments
-                    ? (pendingAmount <= 0.01 ? "Pagado" : "Pendiente")
-                    : "Sin datos";
-                  const paymentsVariant = getPaymentVariant(
-                    Number.isFinite(pendingAmount) ? pendingAmount : Number.NaN,
-                    hasPayments
-                  );
-                  const bonusesAvailable = typeof t?.bonuses?.available === "boolean" ? t.bonuses.available : null;
-                  const bonusesLabel = bonusesAvailable === null
-                    ? "—"
-                    : (bonusesAvailable ? "Disponibles" : "No disponibles");
-                  const bonusesVariant = getBonusesVariant(bonusesAvailable);
-                  const statusLabel = t.status || "—";
-                  const statusVariant = getStatusVariant(statusLabel);
-                  return (
-                    <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
-                      <td>{t.code || `#${t.id}`}</td>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{t.title}</div>
-                        <div style={{ fontSize: 12, opacity: 0.75 }}>{t.code ? `ID ${t.id}` : `Expediente ${t.id}`}</div>
-                      </td>
-                      <td>{formatDateES(r.start)}</td>
-                      <td>{formatDateES(r.end)}</td>
-                      <td>
-                        <BadgeLabel label={statusLabel} variant={statusVariant} />
-                      </td>
-                      <td style={{ textAlign: "right" }}>{totalLabel}</td>
-                      <td>
-                        <div className="cp-trip-payments-info">
-                          <BadgeLabel label={paymentsLabelText} variant={paymentsVariant} />
-                          {hasPayments && Number.isFinite(paidAmount) ? (
-                            <div className="cp-trip-paid-amount">Pagado: {euro(paidAmount)}</div>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td>
-                        <BadgeLabel label={bonusesLabel} variant={bonusesVariant} />
-                      </td>
-                      <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                        <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
-                          Ver detalle
-                        </button>
-                        <button
-                          className="cp-btn"
-                          style={{ whiteSpace: "nowrap" }}
-                          onClick={() => onOpen(t.id, "payments")}
-                        >
-                          Pagar
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              {filteredTrips.length === 0 ? (
-                <tr>
-                  <td colSpan={9} style={{ padding: 18, opacity: 0.8 }}>
-                    No hay viajes disponibles ahora mismo.
-                  </td>
+          {loading ? (
+            <TableSkeleton rows={6} cols={9} />
+          ) : (
+            <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
+                  <th style={{ width: 120 }}>Expediente</th>
+                  <th>Viaje</th>
+                  <th style={{ width: 140 }}>Inicio</th>
+                  <th style={{ width: 140 }}>Fin</th>
+                  <th style={{ width: 120 }}>Estado</th>
+                  <th style={{ width: 110, textAlign: "right" }}>Total</th>
+                  <th style={{ width: 160 }}>Pagos</th>
+                  <th style={{ width: 120 }}>Bonos</th>
+                  <th style={{ width: 180 }}></th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {hasTrips ? (
+                  trips.map((t) => {
+                    const r = normalizeTripDates(t);
+                    const payments = t?.payments || null;
+                    const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
+                    const paidAmount = typeof payments?.paid === "number" ? payments.paid : Number.NaN;
+                    const pendingCandidate = typeof payments?.pending === "number" ? payments.pending : Number.NaN;
+                    const pendingAmount = Number.isFinite(pendingCandidate)
+                      ? pendingCandidate
+                      : (Number.isFinite(totalAmount) && Number.isFinite(paidAmount)
+                          ? Math.max(0, totalAmount - paidAmount)
+                          : Number.NaN);
+                    const hasPayments = Number.isFinite(totalAmount);
+                    const currencyForTrip = payments?.currency || "EUR";
+                    const totalLabel = hasPayments ? euro(totalAmount, currencyForTrip) : "-";
+                    const paymentsLabelText = hasPayments
+                      ? (pendingAmount <= 0.01 ? "Pagado" : "Pendiente")
+                      : "Sin datos";
+                    const paymentsVariant = getPaymentVariant(
+                      Number.isFinite(pendingAmount) ? pendingAmount : Number.NaN,
+                      hasPayments
+                    );
+                    const bonusesAvailable = typeof t?.bonuses?.available === "boolean" ? t.bonuses.available : null;
+                    const bonusesLabel = bonusesAvailable === null
+                      ? ""
+                      : (bonusesAvailable ? "Disponibles" : "No disponibles");
+                    const bonusesVariant = getBonusesVariant(bonusesAvailable);
+                    const statusLabel = t.status || "";
+                    const statusVariant = getStatusVariant(statusLabel);
+                    return (
+                      <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
+                        <td>{t.code || `#${t.id}`}</td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{t.title}</div>
+                          <div style={{ fontSize: 12, opacity: 0.75 }}>{t.code ? `ID ${t.id}` : `Expediente ${t.id}`}</div>
+                        </td>
+                        <td>{formatDateES(r.start)}</td>
+                        <td>{formatDateES(r.end)}</td>
+                        <td>
+                          <BadgeLabel label={statusLabel} variant={statusVariant} />
+                        </td>
+                        <td style={{ textAlign: "right" }}>{totalLabel}</td>
+                        <td>
+                          <div className="cp-trip-payments-info">
+                            <BadgeLabel label={paymentsLabelText} variant={paymentsVariant} />
+                            {hasPayments && Number.isFinite(paidAmount) ? (
+                              <div className="cp-trip-paid-amount">Pagado: {euro(paidAmount)}</div>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td>
+                          <BadgeLabel label={bonusesLabel} variant={bonusesVariant} />
+                        </td>
+                        <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                          <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
+                            Ver detalle
+                          </button>
+                          <button
+                            className="cp-btn"
+                            style={{ whiteSpace: "nowrap" }}
+                            onClick={() => onOpen(t.id, "payments")}
+                          >
+                            Pagar
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={9} style={{ padding: 18, opacity: 0.8 }}>
+                      No hay viajes disponibles para el año seleccionado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
-
-          </div>
+    </div>
   );
 }
-
 function Tabs({ tab, onTab }) {
   const items = [
     { k: "summary", label: "Resumen" },
