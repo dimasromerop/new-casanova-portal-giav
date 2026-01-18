@@ -1758,7 +1758,7 @@ function CardTitleWithIcon({ icon: Icon, children }) {
   );
 }
 
-function DashboardView({ data }) {
+function DashboardView({ data, heroImageUrl }) {
   const nextTrip = data?.next_trip || null;
   const payments = data?.payments || null;
   const mull = data?.mulligans || null;
@@ -1853,7 +1853,13 @@ function DashboardView({ data }) {
     setParam("view", "trip");
     setParam("expediente", String(targetId));
     if (actionStatus === "pending") setParam("tab", "payments");
+    else if (actionStatus === "invoices") setParam("tab", "invoices");
   };
+
+  const actionCtaLabel = actionStatus === "pending" ? "Ver pagos" : (actionStatus === "invoices" ? "Ver facturas" : "Ver viaje");
+  const actionPillLabel = actionStatus === "invoices" && typeof action?.invoice_count === "number"
+    ? `${actionBadge} · ${action.invoice_count}`
+    : actionBadge;
 
   const viewNoteTrip = (event) => {
     if (!noteExpedienteId) return;
@@ -1879,8 +1885,33 @@ function DashboardView({ data }) {
 
             {nextTrip ? (
               <>
-                <div className="cp-hero__title">{tripLabel}</div>
-                <div className="cp-hero__meta">{tripMeta || "Fechas por definir"}</div>
+                <div className="cp-hero__header">
+                  <div className="cp-hero__heading">
+                    <div className="cp-hero__title">{tripLabel}</div>
+                    <div className="cp-hero__meta">
+                      {tripMeta || "Fechas por definir"}
+                      {tripLabel ? (
+                        <a
+                          className="cp-hero__meta-link"
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tripLabel)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Abrir destino en Google Maps"
+                        >
+                          Ver mapa
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {heroImageUrl ? (
+                    <div className="cp-hero__media" aria-hidden="true">
+                      <img className="cp-hero__media-img" src={heroImageUrl} alt="" loading="lazy" />
+                    </div>
+                  ) : (
+                    <div className="cp-hero__media is-empty" aria-hidden="true" />
+                  )}
+                </div>
 
                 <div className="cp-hero__kpis">
                   <div className="cp-hero-kpi">
@@ -1912,7 +1943,14 @@ function DashboardView({ data }) {
                     ) : null}
                   </div>
                   <div className="cp-hero__actions-right">
-                    <span className={`cp-pill cp-hero-pill ${actionPillClass}`}>{actionBadge}</span>
+                    <button
+                      type="button"
+                      className={`cp-pill cp-hero-pill cp-pill--clickable ${actionPillClass}`}
+                      onClick={viewActionTrip}
+                      title={actionStatus === "pending" ? "Ir a pagos" : (actionStatus === "invoices" ? "Ir a facturas" : "Ir al viaje")}
+                    >
+                      {actionPillLabel}
+                    </button>
                     <span className="cp-hero__hint">{actionTripLabel ? `Para: ${actionTripLabel}` : ""}</span>
                   </div>
                 </div>
@@ -1930,7 +1968,15 @@ function DashboardView({ data }) {
         <section className="cp-card cp-dash-card cp-dash-span-4 cp-card--quiet">
           <div className="cp-dash-head">
             <CardTitleWithIcon icon={IconClipboardList}>Siguiente paso</CardTitleWithIcon>
-            <span className={`cp-pill cp-dash-pill ${actionPillClass}`}>{actionBadge}</span>
+            <button
+              type="button"
+              className={`cp-pill cp-dash-pill cp-pill--clickable ${actionPillClass}`}
+              onClick={actionTripLabel ? viewActionTrip : undefined}
+              title={actionTripLabel ? "Ver detalle" : ""}
+              disabled={!actionTripLabel}
+            >
+              {actionPillLabel}
+            </button>
           </div>
           {actionTripLabel ? (
             <div className="cp-dash-context">
@@ -1949,7 +1995,7 @@ function DashboardView({ data }) {
           ) : null}
           {actionTripLabel ? (
             <button className="cp-btn primary" onClick={viewActionTrip}>
-              Ver viaje
+              {actionCtaLabel}
             </button>
           ) : null}
         </section>
@@ -2051,9 +2097,24 @@ function DashboardView({ data }) {
   );
 }
 
+function pickHeroImageFromTripDetail(detail) {
+  if (!detail || typeof detail !== "object") return "";
+  const pkgServices = Array.isArray(detail?.package?.services) ? detail.package.services : [];
+  const extras = Array.isArray(detail?.extras) ? detail.extras : [];
+  const pool = [...pkgServices, ...extras];
+  for (const s of pool) {
+    const url = s?.media?.image_url;
+    if (typeof url === "string" && url.trim() !== "") return url.trim();
+  }
+  // fallback: sometimes trip may include a hero image directly
+  const tripImg = detail?.trip?.media?.image_url || detail?.trip?.hero_image_url || "";
+  return typeof tripImg === "string" ? tripImg.trim() : "";
+}
+
 function App() {
   const [route, setRoute] = useState(readParams());
   const [dashboard, setDashboard] = useState(null);
+  const [heroImageUrl, setHeroImageUrl] = useState("");
   const [loadingDash, setLoadingDash] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dashErr, setDashErr] = useState(null);
@@ -2065,6 +2126,8 @@ function App() {
 
   const [inboxLatestTs, setInboxLatestTs] = useState(() => lsGetInt(LS_KEYS.inboxLatestTs, 0));
   const [messagesLastSeenTs, setMessagesLastSeenTs] = useState(() => lsGetInt(LS_KEYS.messagesLastSeenTs, 0));
+
+  const heroImageTripIdRef = useRef("");
 
   useEffect(() => {
     const onPop = () => setRoute(readParams());
@@ -2107,6 +2170,12 @@ function App() {
       setDashboard(dashRes);
       setInbox(inboxRes);
       setInboxErr(null);
+
+      // Reset hero image if next trip changes (image will be re-fetched lazily).
+      const nextTripId = dashRes?.next_trip?.id ? String(dashRes.next_trip.id) : "";
+      if (heroImageTripIdRef.current && heroImageTripIdRef.current !== nextTripId) {
+        setHeroImageUrl("");
+      }
     } catch (e) {
       setDashErr(e);
       setInboxErr(e);
@@ -2115,6 +2184,50 @@ function App() {
       setLoadingDash(false);
     }
   }
+
+  // Lazy-load a hero image from the trip detail (reuses existing /trip endpoint).
+  useEffect(() => {
+    const nextTripId = dashboard?.next_trip?.id ? String(dashboard.next_trip.id) : "";
+    if (!nextTripId) {
+      heroImageTripIdRef.current = "";
+      setHeroImageUrl("");
+      return;
+    }
+    if (heroImageTripIdRef.current === nextTripId && heroImageUrl) return;
+
+    let alive = true;
+    heroImageTripIdRef.current = nextTripId;
+
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        if (route.mock) params.set("mock", "1");
+        const qs = params.toString() ? `?${params.toString()}` : "";
+        const d = await api(`/trip/${encodeURIComponent(nextTripId)}${qs}`);
+        if (!alive) return;
+
+        const pick = (rows) => {
+          if (!Array.isArray(rows)) return "";
+          for (const s of rows) {
+            const url = s?.media?.image_url || "";
+            if (url) return String(url);
+          }
+          return "";
+        };
+
+        const pkgRows = Array.isArray(d?.package?.services) ? d.package.services : [];
+        const extraRows = Array.isArray(d?.extras) ? d.extras : [];
+        const url = pick(pkgRows) || pick(extraRows) || "";
+        if (url) setHeroImageUrl(url);
+      } catch {
+        // Silent fail: hero keeps its premium gradients.
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [dashboard?.next_trip?.id, route.mock]);
 
   useEffect(() => {
     loadDashboard();
@@ -2217,7 +2330,7 @@ function App() {
         ) : route.view === "inbox" ? (
           <InboxView mock={route.mock} inbox={inbox} loading={loadingDash} error={inboxErr} onLatestTs={handleLatestTs} onSeen={markMessagesSeen} />
         ) : route.view === "dashboard" ? (
-          <DashboardView data={dashboard} />
+          <DashboardView data={dashboard} heroImageUrl={heroImageUrl} />
         ) : route.view === "mulligans" ? (
           <MulligansView data={dashboard} />
         ) : (
