@@ -1,5 +1,8 @@
 # Ignore node_modules directory
 node_modules/
 
+# Ignore generated GIAV XML export
+api_2_05.xml
+
 # Uncomment to ignore node_modules anywhere in the repo
 # **/node_modules/
