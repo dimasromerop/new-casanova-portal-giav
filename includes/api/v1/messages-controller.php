@@ -26,6 +26,7 @@ class Casanova_Messages_Controller {
   }
 
   public static function handle(WP_REST_Request $request) {
+    casanova_portal_clear_rest_output();
     try {
       $user_id = get_current_user_id();
       $data = Casanova_Messages_Service::get_messages_for_user($user_id, $request);

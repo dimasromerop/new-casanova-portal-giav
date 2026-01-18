@@ -39,6 +39,7 @@ class Casanova_Payments_Controller {
   }
 
   public static function handle(WP_REST_Request $request) {
+    casanova_portal_clear_rest_output();
     $mock = (int) $request->get_param('mock') === 1 && current_user_can('manage_options');
     if ($mock) {
       $mock_url = esc_url_raw(add_query_arg(['payment' => 'intent-mock'], home_url('/portal')));

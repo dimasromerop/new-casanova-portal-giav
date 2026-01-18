@@ -20,6 +20,7 @@ class Casanova_Dashboard_Controller {
   }
 
   public static function handle(WP_REST_Request $request) {
+    casanova_portal_clear_rest_output();
     try {
       $mock = (int) $request->get_param('mock') === 1;
       $refresh = (int) $request->get_param('refresh') === 1;

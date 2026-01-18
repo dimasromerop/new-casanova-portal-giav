@@ -13,6 +13,14 @@ if (!defined('ABSPATH')) exit;
 define('CASANOVA_GIAV_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('CASANOVA_GIAV_PLUGIN_URL', plugin_dir_url(__FILE__));
 
+if (!function_exists('casanova_portal_clear_rest_output')) {
+  function casanova_portal_clear_rest_output(): void {
+    while (ob_get_level()) {
+      ob_end_clean();
+    }
+  }
+}
+
 
 add_action('plugins_loaded', function () {
   load_plugin_textdomain('casanova-portal', false, dirname(plugin_basename(__FILE__)) . '/languages');

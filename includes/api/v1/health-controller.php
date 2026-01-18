@@ -24,6 +24,7 @@ class Casanova_Health_Controller {
   }
 
   public static function handle(WP_REST_Request $request) {
+    casanova_portal_clear_rest_output();
 
     $t0 = microtime(true);
     $giav_ok = false;

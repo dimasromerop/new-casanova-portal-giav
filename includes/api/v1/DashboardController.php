@@ -15,6 +15,7 @@ class Casanova_Dashboard_Controller {
     }
 
     public static function handle(WP_REST_Request $request) {
+        casanova_portal_clear_rest_output();
         try {
             $user_id = get_current_user_id();
 
