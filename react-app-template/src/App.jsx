@@ -1864,60 +1864,72 @@ function DashboardView({ data }) {
 
   return (
     <div className="cp-content">
-      <div className="cp-grid cp-dash-grid">
-        <section className="cp-card cp-dash-card cp-dash-span-8">
-          <div className="cp-dash-head">
-            <CardTitleWithIcon icon={IconMapPin}>Próximo viaje</CardTitleWithIcon>
-            <div className="cp-dash-head-right">
-              {daysLeftLabel ? <span className="cp-pill cp-dash-pill">{daysLeftLabel}</span> : null}
-              {nextTrip?.status ? <span className="cp-pill cp-dash-pill">{nextTrip.status}</span> : null}
+      <div className="cp-grid cp-dash-grid cp-dash-premium">
+        {/* HERO: Próximo viaje */}
+        <section className="cp-hero cp-dash-span-12">
+          <div className="cp-hero__bg" aria-hidden="true" />
+          <div className="cp-hero__content">
+            <div className="cp-hero__top">
+              <div className="cp-hero__eyebrow">Próximo viaje</div>
+              <div className="cp-hero__badges">
+                {daysLeftLabel ? <span className="cp-pill cp-hero-pill">{daysLeftLabel}</span> : null}
+                {nextTrip?.status ? <span className="cp-pill cp-hero-pill">{nextTrip.status}</span> : null}
+              </div>
             </div>
-          </div>
-          {nextTrip ? (
-            <>
-              <div className="cp-dash-next-title">{tripLabel}</div>
-              <div className="cp-dash-next-meta">{tripMeta || "Fechas por definir"}</div>
-              <div className="cp-dash-kpis">
-                <div className="cp-dash-kpi">
-                  <div className="cp-dash-kpi-label">Total viaje</div>
-                  <div className="cp-dash-kpi-value">{hasPaymentsData ? totalLabel : "—"}</div>
-                </div>
-                <div className="cp-dash-kpi">
-                  <div className="cp-dash-kpi-label">Pendiente</div>
-                  <div className="cp-dash-kpi-value cp-dash-kpi-value--warn">
-                    {hasPaymentsData ? pendingLabel : "—"}
+
+            {nextTrip ? (
+              <>
+                <div className="cp-hero__title">{tripLabel}</div>
+                <div className="cp-hero__meta">{tripMeta || "Fechas por definir"}</div>
+
+                <div className="cp-hero__kpis">
+                  <div className="cp-hero-kpi">
+                    <div className="cp-hero-kpi__label">Total viaje</div>
+                    <div className="cp-hero-kpi__value">{hasPaymentsData ? totalLabel : "—"}</div>
+                  </div>
+                  <div className="cp-hero-kpi">
+                    <div className="cp-hero-kpi__label">Pendiente</div>
+                    <div className="cp-hero-kpi__value is-warn">{hasPaymentsData ? pendingLabel : "—"}</div>
+                  </div>
+                  <div className="cp-hero-kpi">
+                    <div className="cp-hero-kpi__label">Pagado</div>
+                    <div className="cp-hero-kpi__value">{hasPaymentsData ? paidLabel : "—"}</div>
                   </div>
                 </div>
-              </div>
-              <div className="cp-dash-actions">
-                <div className="cp-dash-actions-left">
-                  <button className="cp-btn primary" onClick={viewTrip}>
-                    Ver detalle
-                  </button>
-                  <button className="cp-btn cp-btn--ghost" onClick={viewPayments} disabled={!hasPaymentsData}>
-                    Pagos
-                  </button>
-                  {calendarUrl ? (
-                    <a className="cp-btn cp-btn--ghost" href={calendarUrl}>
-                      Calendario
-                    </a>
-                  ) : null}
+
+                <div className="cp-hero__actions">
+                  <div className="cp-hero__actions-left">
+                    <button className="cp-btn primary" onClick={viewTrip}>
+                      Ver viaje
+                    </button>
+                    <button className="cp-btn cp-btn--ghost" onClick={viewPayments} disabled={!hasPaymentsData}>
+                      Pagos
+                    </button>
+                    {calendarUrl ? (
+                      <a className="cp-btn cp-btn--ghost" href={calendarUrl}>
+                        Calendario
+                      </a>
+                    ) : null}
+                  </div>
+                  <div className="cp-hero__actions-right">
+                    <span className={`cp-pill cp-hero-pill ${actionPillClass}`}>{actionBadge}</span>
+                    <span className="cp-hero__hint">{actionTripLabel ? `Para: ${actionTripLabel}` : ""}</span>
+                  </div>
                 </div>
-                <div className="cp-dash-actions-meta">
-                  Pagado: {hasPaymentsData ? paidLabel : "—"}
-                </div>
+              </>
+            ) : (
+              <div className="cp-hero__empty">
+                <div className="cp-hero__title">Aún no tienes un próximo viaje</div>
+                <div className="cp-hero__meta">Cuando confirmes una reserva, la verás aquí con todos sus detalles.</div>
               </div>
-            </>
-          ) : (
-            <div className="cp-muted" style={{ marginTop: 8 }}>
-              No tienes viajes próximos.
-            </div>
-          )}
+            )}
+          </div>
         </section>
 
-        <section className="cp-card cp-dash-card cp-dash-span-4">
+        {/* Cards secundarias */}
+        <section className="cp-card cp-dash-card cp-dash-span-4 cp-card--quiet">
           <div className="cp-dash-head">
-            <CardTitleWithIcon icon={IconClipboardList}>Qué necesitas hacer ahora</CardTitleWithIcon>
+            <CardTitleWithIcon icon={IconClipboardList}>Siguiente paso</CardTitleWithIcon>
             <span className={`cp-pill cp-dash-pill ${actionPillClass}`}>{actionBadge}</span>
           </div>
           {actionTripLabel ? (
@@ -1942,9 +1954,9 @@ function DashboardView({ data }) {
           ) : null}
         </section>
 
-        <section className="cp-card cp-dash-card cp-dash-span-4">
+        <section className="cp-card cp-dash-card cp-dash-span-4 cp-card--quiet">
           <div className="cp-dash-head">
-            <CardTitleWithIcon icon={IconWallet}>Estado de pagos</CardTitleWithIcon>
+            <CardTitleWithIcon icon={IconWallet}>Pagos</CardTitleWithIcon>
             {hasPaymentsData ? (
               <span className={`cp-pill cp-dash-pill ${isPaid ? "is-ok" : "is-warn"}`}>
                 {isPaid ? "Todo pagado" : "Pendiente"}
@@ -1966,9 +1978,7 @@ function DashboardView({ data }) {
               <div className="cp-dash-progress">
                 <div className="cp-dash-progress-bar" style={{ width: `${paymentProgress}%` }} />
               </div>
-              <div className="cp-dash-meta">
-                Has pagado {paidLabel} de {totalLabel}
-              </div>
+              <div className="cp-dash-meta">Has pagado {paidLabel} de {totalLabel}</div>
               <button className="cp-btn cp-btn--ghost" onClick={viewPayments}>
                 Ver detalle
               </button>
@@ -1980,8 +1990,32 @@ function DashboardView({ data }) {
           )}
         </section>
 
-        
-        <section className={"casanova-mulligans-card " + tierClass}>
+        <section className="cp-card cp-dash-card cp-dash-span-4 cp-card--quiet">
+          <div className="cp-dash-head">
+            <CardTitleWithIcon icon={IconMapPin}>Tu viaje</CardTitleWithIcon>
+            {tripCode ? <span className="cp-pill cp-dash-pill is-info">{tripCode}</span> : null}
+          </div>
+          <div className="cp-dash-note">
+            {nextTrip ? (
+              <>
+                <strong>{tripLabel}</strong>
+                <div className="cp-muted" style={{ marginTop: 6 }}>
+                  {tripMeta || "Fechas por definir"}
+                </div>
+              </>
+            ) : (
+              "Cuando confirmes un viaje, aquí tendrás acceso rápido a todo."
+            )}
+          </div>
+          {nextTrip ? (
+            <button className="cp-btn cp-btn--ghost" onClick={viewTrip}>
+              Ir al detalle
+            </button>
+          ) : null}
+        </section>
+
+        {/* Mulligans con presencia (sin tocar datos) */}
+        <section className={"casanova-mulligans-card casanova-mulligans-card--dash " + tierClass}>
           <div className="casanova-mulligans-card__top">
             <div className="casanova-mulligans-card__title cp-card-title--with-icon">
               <span className="cp-card-title-icon" aria-hidden="true">
