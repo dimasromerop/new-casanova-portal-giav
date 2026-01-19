@@ -34,6 +34,7 @@ class Casanova_Trip_Service {
       $trip = self::build_trip($idCliente, $expediente_id);
       $reservas = self::build_reservas($idCliente, $expediente_id);
       $structure = self::build_package_structure($expediente_id, $reservas);
+      $map = self::build_map_from_structure($structure);
       $passengers = self::build_passengers($expediente_id);
       $services = [];
       $payments = self::build_payments($user_id, $idCliente, $expediente_id, $services);
@@ -107,13 +108,15 @@ class Casanova_Trip_Service {
         }
       }
 
-$bonuses = self::build_bonos($idCliente, $expediente_id);
+      $bonuses = self::build_bonos($idCliente, $expediente_id);
       $messages_meta = self::build_messages_meta($user_id, $expediente_id);
 
       return [
         'status' => 'ok',
         'giav'   => ['ok' => true, 'source' => 'live', 'error' => null],
-        'trip'   => $trip,
+        // Keep the existing response contract intact.
+        'trip'    => $trip,
+        'map'     => $map,
         'package' => $structure['package'],
         'extras' => $structure['extras'],
         'passengers' => $passengers,
@@ -129,6 +132,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
         'status' => 'degraded',
         'giav'   => ['ok' => false, 'source' => 'live', 'error' => $e->getMessage()],
         'trip'   => null,
+        'map'    => null,
         'package' => null,
         'extras' => [],
         'passengers' => [],
@@ -148,6 +152,7 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       'status' => 'ok',
       'giav'   => ['ok' => true, 'source' => 'live', 'error' => null],
       'trip'   => null,
+      'map'    => null,
       'package' => null,
       'extras' => [],
       'passengers' => [],
@@ -312,6 +317,91 @@ $bonuses = self::build_bonos($idCliente, $expediente_id);
       'package' => $pkg,
       'extras' => $extras,
     ];
+  }
+
+
+  /**
+   * Build a Google Maps URL for the trip based on hotel services found in the
+   * normalized package/extras structure.
+   *
+   * - If there is 1 hotel: maps/search
+   * - If there are 2+ hotels: maps/dir with waypoints
+   *
+   * @param array<string,mixed> $structure
+   * @return array<string,mixed>|null
+   */
+  private static function build_map_from_structure(array $structure): ?array {
+    $titles = self::extract_hotel_titles_from_structure($structure);
+    if (empty($titles)) return null;
+
+    // Avoid creating absurdly long URLs.
+    $titles = array_slice($titles, 0, 8);
+
+    if (count($titles) === 1) {
+      $q = $titles[0];
+      return [
+        'type' => 'single',
+        'query' => $q,
+        'hotels' => [$q],
+        'url' => 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($q),
+      ];
+    }
+
+    $destination = rawurlencode($titles[0]);
+    $wps = array_slice($titles, 1);
+    $wps = array_map(function($t) { return rawurlencode($t); }, $wps);
+    $waypoints = implode('|', $wps);
+
+    return [
+      'type' => 'route',
+      'query' => $titles,
+      'hotels' => $titles,
+      'url' => 'https://www.google.com/maps/dir/?api=1&destination=' . $destination . '&waypoints=' . $waypoints,
+    ];
+  }
+
+  /**
+   * Extract hotel titles from the normalized structure.
+   *
+   * @param array<string,mixed> $structure
+   * @return array<int,string>
+   */
+  private static function extract_hotel_titles_from_structure(array $structure): array {
+    $titles = [];
+
+    $push = function($service) use (&$titles) {
+      if (!is_array($service)) return;
+      $semantic = (string) ($service['semantic_type'] ?? '');
+      if ($semantic !== 'hotel') return;
+      $t = trim((string) ($service['title'] ?? ''));
+      if ($t === '') return;
+      $t = preg_replace('/\s+/', ' ', $t);
+      $titles[] = $t;
+    };
+
+    $pkg = $structure['package'] ?? null;
+    if (is_array($pkg)) {
+      $services = $pkg['services'] ?? [];
+      if (is_array($services)) {
+        foreach ($services as $s) $push($s);
+      }
+    }
+
+    $extras = $structure['extras'] ?? [];
+    if (is_array($extras)) {
+      foreach ($extras as $s) $push($s);
+    }
+
+    // De-duplicate while preserving order.
+    $seen = [];
+    $out = [];
+    foreach ($titles as $t) {
+      $k = function_exists('mb_strtolower') ? mb_strtolower($t) : strtolower($t);
+      if (isset($seen[$k])) continue;
+      $seen[$k] = true;
+      $out[] = $t;
+    }
+    return $out;
   }
 
   /**

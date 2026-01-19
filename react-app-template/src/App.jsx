@@ -1758,7 +1758,7 @@ function CardTitleWithIcon({ icon: Icon, children }) {
   );
 }
 
-function DashboardView({ data, heroImageUrl }) {
+function DashboardView({ data, heroImageUrl, heroMap }) {
   const nextTrip = data?.next_trip || null;
   const payments = data?.payments || null;
   const mull = data?.mulligans || null;
@@ -1890,15 +1890,15 @@ function DashboardView({ data, heroImageUrl }) {
                     <div className="cp-hero__title">{tripLabel}</div>
                     <div className="cp-hero__meta">
                       {tripMeta || "Fechas por definir"}
-                      {tripLabel ? (
+                      {heroMap?.url ? (
                         <a
                           className="cp-hero__meta-link"
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tripLabel)}`}
+                          href={heroMap.url}
                           target="_blank"
                           rel="noreferrer"
-                          title="Abrir destino en Google Maps"
+                          title="Abrir en Google Maps"
                         >
-                          Ver mapa
+                          {heroMap?.type === 'route' ? 'Ver ruta' : 'Ver mapa'}
                         </a>
                       ) : null}
                     </div>
@@ -2115,6 +2115,7 @@ function App() {
   const [route, setRoute] = useState(readParams());
   const [dashboard, setDashboard] = useState(null);
   const [heroImageUrl, setHeroImageUrl] = useState("");
+  const [heroMap, setHeroMap] = useState(null);
   const [loadingDash, setLoadingDash] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dashErr, setDashErr] = useState(null);
@@ -2175,6 +2176,7 @@ function App() {
       const nextTripId = dashRes?.next_trip?.id ? String(dashRes.next_trip.id) : "";
       if (heroImageTripIdRef.current && heroImageTripIdRef.current !== nextTripId) {
         setHeroImageUrl("");
+        setHeroMap(null);
       }
     } catch (e) {
       setDashErr(e);
@@ -2191,9 +2193,10 @@ function App() {
     if (!nextTripId) {
       heroImageTripIdRef.current = "";
       setHeroImageUrl("");
+      setHeroMap(null);
       return;
     }
-    if (heroImageTripIdRef.current === nextTripId && heroImageUrl) return;
+    if (heroImageTripIdRef.current === nextTripId && heroImageUrl && heroMap?.url) return;
 
     let alive = true;
     heroImageTripIdRef.current = nextTripId;
@@ -2205,6 +2208,12 @@ function App() {
         const qs = params.toString() ? `?${params.toString()}` : "";
         const d = await api(`/trip/${encodeURIComponent(nextTripId)}${qs}`);
         if (!alive) return;
+
+        if (d && typeof d === 'object' && d.map && typeof d.map.url === 'string') {
+          setHeroMap({ type: d.map.type || 'single', url: d.map.url, hotels: Array.isArray(d.map.hotels) ? d.map.hotels : [] });
+        } else {
+          setHeroMap(null);
+        }
 
         const pick = (rows) => {
           if (!Array.isArray(rows)) return "";
@@ -2330,7 +2339,7 @@ function App() {
         ) : route.view === "inbox" ? (
           <InboxView mock={route.mock} inbox={inbox} loading={loadingDash} error={inboxErr} onLatestTs={handleLatestTs} onSeen={markMessagesSeen} />
         ) : route.view === "dashboard" ? (
-          <DashboardView data={dashboard} heroImageUrl={heroImageUrl} />
+          <DashboardView data={dashboard} heroImageUrl={heroImageUrl} heroMap={heroMap} />
         ) : route.view === "mulligans" ? (
           <MulligansView data={dashboard} />
         ) : (
