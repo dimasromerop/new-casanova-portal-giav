@@ -177,6 +177,7 @@ require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/services/inbox-service.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/payments-controller.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/expedientes-controller.php';
 require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/inbox-controller.php';
+  require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/profile-controller.php';
 
   add_action('rest_api_init', ['Casanova_Dashboard_Controller', 'register_routes']);
   add_action('rest_api_init', ['Casanova_Messages_Controller', 'register_routes']);
@@ -184,6 +185,8 @@ require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/inbox-controller.php';
   add_action('rest_api_init', ['Casanova_Expedientes_Controller', 'register_routes']);
   add_action('rest_api_init', ['Casanova_Inbox_Controller', 'register_routes']);
   add_action('rest_api_init', ['Casanova_Payments_Controller', 'register_routes']);
+  add_action('rest_api_init', ['Casanova_Profile_Controller', 'register_routes']);
+  add_action('rest_api_init', ['Casanova_Profile_Controller', 'register_routes']);
 
   // React container shortcode
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-react-app.php';

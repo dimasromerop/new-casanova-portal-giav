@@ -530,7 +530,7 @@ function Sidebar({ view, unread = 0 }) {
   );
 }
 
-function Topbar({ title, chip, onRefresh, isRefreshing }) {
+function Topbar({ title, chip, onRefresh, isRefreshing, profile, onGo, onLogout }) {
   return (
     <div className="cp-topbar">
       <div className="cp-topbar-inner">
@@ -539,6 +539,216 @@ function Topbar({ title, chip, onRefresh, isRefreshing }) {
           {chip ? <div className="cp-chip">{chip}</div> : null}
           {isRefreshing ? <div className="cp-chip">Actualizando…</div> : null}
           <button className="cp-btn" onClick={onRefresh}>
+            Actualizar
+          </button>
+          <UserMenu profile={profile} onGo={onGo} onLogout={onLogout} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function initials(name) {
+  const n = String(name || "").trim();
+  if (!n) return "U";
+  const parts = n.split(/\s+/).filter(Boolean);
+  const a = parts[0]?.[0] || "U";
+  const b = parts.length > 1 ? parts[parts.length - 1]?.[0] : "";
+  return (a + b).toUpperCase();
+}
+
+function UserMenu({ profile, onGo, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!open) return;
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const name = profile?.user?.displayName || profile?.giav?.nombre || "";
+  const email = profile?.user?.email || profile?.giav?.email || "";
+  const avatarUrl = profile?.user?.avatarUrl || "";
+
+  return (
+    <div className="cp-user" ref={ref}>
+      <button type="button" className="cp-user-btn" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open ? "true" : "false"}>
+        {avatarUrl ? (
+          <img className="cp-user-avatar" src={avatarUrl} alt="" />
+        ) : (
+          <div className="cp-user-avatar is-fallback" aria-hidden="true">{initials(name)}</div>
+        )}
+      </button>
+
+      {open ? (
+        <div className="cp-user-menu" role="menu">
+          <div className="cp-user-head">
+            {avatarUrl ? (
+              <img className="cp-user-avatar" src={avatarUrl} alt="" />
+            ) : (
+              <div className="cp-user-avatar is-fallback" aria-hidden="true">{initials(name)}</div>
+            )}
+            <div>
+              <div className="cp-user-name">{name || "Tu cuenta"}</div>
+              {email ? <div className="cp-user-email">{email}</div> : null}
+            </div>
+          </div>
+
+          <button type="button" className="cp-user-item" onClick={() => { setOpen(false); onGo("profile"); }} role="menuitem">
+            Mi perfil
+          </button>
+          <button type="button" className="cp-user-item" onClick={() => { setOpen(false); onGo("security"); }} role="menuitem">
+            Seguridad
+          </button>
+          <button type="button" className="cp-user-item" onClick={() => { setOpen(false); onGo("profile"); }} role="menuitem">
+            Idioma
+          </button>
+
+          <div className="cp-user-sep" />
+          <button type="button" className="cp-user-item is-danger" onClick={() => { setOpen(false); onLogout(); }} role="menuitem">
+            Cerrar sesión
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Field({ label, children, help }) {
+  return (
+    <div className="cp-field">
+      <div className="cp-label">{label}</div>
+      {children}
+      {help ? <div className="cp-help">{help}</div> : null}
+    </div>
+  );
+}
+
+function ProfileView({ profile, onSave, onLocale }) {
+  const giav = profile?.giav || {};
+  const [form, setForm] = useState(() => ({
+    telefono: giav.telefono || "",
+    movil: giav.movil || "",
+    direccion: giav.direccion || "",
+    codPostal: giav.codPostal || "",
+    poblacion: giav.poblacion || "",
+    provincia: giav.provincia || "",
+    pais: giav.pais || "",
+  }));
+
+  useEffect(() => {
+    setForm({
+      telefono: giav.telefono || "",
+      movil: giav.movil || "",
+      direccion: giav.direccion || "",
+      codPostal: giav.codPostal || "",
+      poblacion: giav.poblacion || "",
+      provincia: giav.provincia || "",
+      pais: giav.pais || "",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.giav?.direccion, profile?.giav?.telefono, profile?.giav?.movil, profile?.giav?.codPostal, profile?.giav?.poblacion, profile?.giav?.provincia, profile?.giav?.pais]);
+
+  const locale = profile?.locale || "";
+
+  return (
+    <div className="cp-content">
+      <div className="cp-card" style={{ background: "#fff" }}>
+        <div className="cp-card-title">Información personal</div>
+
+        <div className="cp-grid2">
+          <Field label="Nombre">
+            <input className="cp-input" value={`${giav.nombre || ""} ${giav.apellidos || ""}`.trim() || "—"} disabled />
+          </Field>
+          <Field label="Email">
+            <input className="cp-input" value={giav.email || profile?.user?.email || "—"} disabled />
+          </Field>
+        </div>
+
+        <div className="cp-grid2">
+          <Field label="Teléfono">
+            <input className="cp-input" value={form.telefono} onChange={(e) => setForm((s) => ({ ...s, telefono: e.target.value }))} placeholder="" />
+          </Field>
+          <Field label="Móvil">
+            <input className="cp-input" value={form.movil} onChange={(e) => setForm((s) => ({ ...s, movil: e.target.value }))} placeholder="" />
+          </Field>
+        </div>
+
+        <div className="cp-divider" />
+        <div className="cp-card-subtitle">Dirección</div>
+
+        <Field label="Dirección">
+          <input className="cp-input" value={form.direccion} onChange={(e) => setForm((s) => ({ ...s, direccion: e.target.value }))} />
+        </Field>
+
+        <div className="cp-grid2">
+          <Field label="Código postal">
+            <input className="cp-input" value={form.codPostal} onChange={(e) => setForm((s) => ({ ...s, codPostal: e.target.value }))} />
+          </Field>
+          <Field label="Población">
+            <input className="cp-input" value={form.poblacion} onChange={(e) => setForm((s) => ({ ...s, poblacion: e.target.value }))} />
+          </Field>
+        </div>
+
+        <div className="cp-grid2">
+          <Field label="Provincia">
+            <input className="cp-input" value={form.provincia} onChange={(e) => setForm((s) => ({ ...s, provincia: e.target.value }))} />
+          </Field>
+          <Field label="País" help="(Opcional, según datos de facturación)">
+            <input className="cp-input" value={form.pais} onChange={(e) => setForm((s) => ({ ...s, pais: e.target.value }))} />
+          </Field>
+        </div>
+
+        <div className="cp-actions-row">
+          <button className="cp-btn-primary" type="button" onClick={() => onSave(form)}>
+            Guardar
+          </button>
+        </div>
+      </div>
+
+      <div className="cp-card" style={{ background: "#fff" }}>
+        <div className="cp-card-title">Idioma del portal</div>
+        <div className="cp-row" style={{ gap: 12, alignItems: "center" }}>
+          <select className="cp-input" value={locale} onChange={(e) => onLocale(e.target.value)} style={{ maxWidth: 280 }}>
+            <option value="es_ES">Español</option>
+            <option value="en_US">English</option>
+          </select>
+          <div className="cp-help">Esto solo afecta al portal.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SecurityView({ onChangePassword }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+
+  return (
+    <div className="cp-content">
+      <div className="cp-card" style={{ background: "#fff" }}>
+        <div className="cp-card-title">Cambiar contraseña</div>
+        <div className="cp-help" style={{ marginTop: -6, marginBottom: 18 }}>
+          Tu contraseña es tu llave digital. No la compartas, aunque a los humanos les encante hacerlo.
+        </div>
+
+        <Field label="Contraseña actual">
+          <input className="cp-input" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+        </Field>
+        <Field label="Nueva contraseña">
+          <input className="cp-input" type="password" value={next} onChange={(e) => setNext(e.target.value)} />
+        </Field>
+        <Field label="Confirmar nueva contraseña">
+          <input className="cp-input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        </Field>
+
+        <div className="cp-actions-row">
+          <button className="cp-btn-primary" type="button" onClick={() => onChangePassword({ current, next, confirm })}>
             Actualizar
           </button>
         </div>
@@ -2207,11 +2417,35 @@ function App() {
 
   const heroImageTripIdRef = useRef("");
 
+  const [profile, setProfile] = useState(null);
+  const [profileErr, setProfileErr] = useState(null);
+  const [toast, setToast] = useState(null);
+
   useEffect(() => {
     const onPop = () => setRoute(readParams());
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+
+  async function loadProfile() {
+    try {
+      setProfileErr(null);
+      const data = await api('/profile');
+      setProfile(data);
+    } catch (e) {
+      setProfileErr(e);
+    }
+  }
+
+  useEffect(() => {
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function notify(message, variant = 'info') {
+    setToast({ message, variant });
+    window.setTimeout(() => setToast(null), 4_000);
+  }
 
   useEffect(() => {
     if (route.payment === "success") {
@@ -2351,6 +2585,45 @@ function App() {
     lsSetInt(LS_KEYS.messagesLastSeenTs, now);
   }
 
+  async function saveProfile(data) {
+    try {
+      const res = await api('/profile', { method: 'POST', body: data });
+      setProfile(res);
+      notify('Perfil actualizado.', 'success');
+    } catch (e) {
+      notify(e?.message || 'No se pudo guardar el perfil.', 'warn');
+    }
+  }
+
+  async function changePassword(data) {
+    try {
+      await api('/profile/password', { method: 'POST', body: data });
+      notify('Contraseña actualizada.', 'success');
+    } catch (e) {
+      notify(e?.message || 'No se pudo actualizar la contraseña.', 'warn');
+    }
+  }
+
+  async function setLocale(locale) {
+    try {
+      const res = await api('/profile/locale', { method: 'POST', body: { locale } });
+      setProfile((p) => (p ? { ...p, locale: res.locale || locale } : p));
+      notify('Idioma actualizado.', 'success');
+    } catch (e) {
+      notify(e?.message || 'No se pudo actualizar el idioma.', 'warn');
+    }
+  }
+
+  function go(view) {
+    if (view) setParam('view', view);
+  }
+
+  function logout() {
+    const url = profile?.logoutUrl;
+    if (url) window.location.href = url;
+    else window.location.href = '/';
+  }
+
   const unreadInbox = inbox?.unread;
   const unreadDash = dashboard?.messages?.unread;
   const unreadFromServer = typeof unreadInbox === "number" ? unreadInbox : (typeof unreadDash === "number" ? unreadDash : 0);
@@ -2364,6 +2637,8 @@ function App() {
     if (route.view === "inbox") return "Mensajes";
     if (route.view === "dashboard") return "Dashboard";
     if (route.view === "mulligans") return "Mulligans";
+    if (route.view === "profile") return "Mi perfil";
+    if (route.view === "security") return "Seguridad";
     return "Portal";
   }, [route.view]);
 
@@ -2373,7 +2648,18 @@ function App() {
     <div className="cp-app">
       <Sidebar view={route.view} unread={unreadCount} />
       <main className="cp-main">
-        <Topbar title={title} chip={chip} onRefresh={() => loadDashboard(true)} isRefreshing={isRefreshing} />
+        <Topbar
+          title={title}
+          chip={chip}
+          onRefresh={() => loadDashboard(true)}
+          isRefreshing={isRefreshing}
+          profile={profile}
+          onGo={go}
+          onLogout={logout}
+        />
+        {toast ? (
+          <div className={`cp-toast is-${toast.variant || 'info'}`}>{toast.message}</div>
+        ) : null}
         {showPaymentBanner ? (
           <div className="cp-content">
             <Notice variant="success" title="Pago registrado">
@@ -2419,6 +2705,22 @@ function App() {
           <DashboardView data={dashboard} heroImageUrl={heroImageUrl} heroMap={heroMap} />
         ) : route.view === "mulligans" ? (
           <MulligansView data={dashboard} />
+        ) : route.view === "profile" ? (
+          profile ? (
+            <ProfileView profile={profile} onSave={saveProfile} onLocale={setLocale} />
+          ) : (
+            <div className="cp-content">
+              {profileErr ? (
+                <Notice variant="warn" title="No podemos cargar tu perfil">
+                  {profileErr?.message || 'Inténtalo de nuevo más tarde.'}
+                </Notice>
+              ) : (
+                <div className="cp-card" style={{ background: "#fff" }}><Skeleton lines={6} /></div>
+              )}
+            </div>
+          )
+        ) : route.view === "security" ? (
+          <SecurityView onChangePassword={changePassword} />
         ) : (
           <div className="cp-content">
             <div className="cp-notice">Vista en construcción.</div>

@@ -55,6 +55,13 @@ function casanova_giav_cliente_get_by_id(int $idCliente) {
  * Nota: el WSDL suele exponer un Cliente_PUT para actualización. Si tu GIAV usa otro nombre,
  * solo hay que cambiar el método aquí.
  */
+/**
+ * Actualiza datos básicos del cliente en GIAV.
+ *
+ * Históricamente se usó solo para dirección postal. Para mantener compatibilidad,
+ * seguimos aceptando el mismo array, pero ahora admitimos también teléfono/móvil
+ * si se proporcionan (sin obligar a nadie a cambiar su integración).
+ */
 function casanova_giav_cliente_update_direccion(int $idCliente, array $addr): bool|WP_Error {
   $c = casanova_giav_cliente_get_by_id($idCliente);
   if (is_wp_error($c)) return $c;
@@ -78,6 +85,8 @@ function casanova_giav_cliente_update_direccion(int $idCliente, array $addr): bo
   $newCP      = sanitize_text_field($addr['codPostal'] ?? '');
   $newCity    = sanitize_text_field($addr['poblacion'] ?? '');
   $newProv    = sanitize_text_field($addr['provincia'] ?? '');
+  $newTel     = sanitize_text_field($addr['telefono'] ?? '');
+  $newMovil   = sanitize_text_field($addr['movil'] ?? '');
   // Ojo: NO usamos país en PUT porque en el WSDL que pegaste NO existe "pais" como parámetro
 
   // TipoCliente obligatorio
@@ -126,7 +135,7 @@ function casanova_giav_cliente_update_direccion(int $idCliente, array $addr): bo
   $p->poblacion = $newCity !== '' ? $newCity : (string)($ws->Poblacion ?? '');
   $p->provincia = $newProv !== '' ? $newProv : (string)($ws->Provincia ?? '');
 
-  $p->telefono = (string)($ws->Telefono ?? '');
+  $p->telefono = $newTel !== '' ? $newTel : (string)($ws->Telefono ?? '');
   $p->fax = (string)($ws->Fax ?? '');
   $p->codCC = $codCC10;
 
@@ -134,7 +143,7 @@ function casanova_giav_cliente_update_direccion(int $idCliente, array $addr): bo
   $p->creditoImporte = (double)($ws->CreditoImporte ?? 0);
   $p->comentarios = (string)($ws->Comentarios ?? '');
   $p->traspasaDepartamentos = (bool)($ws->TraspasaDepartamentos ?? false);
-  $p->movil = (string)($ws->Movil ?? '');
+  $p->movil = $newMovil !== '' ? $newMovil : (string)($ws->Movil ?? '');
   $p->factTotalizadora = (bool)($ws->FactTotalizadora ?? false);
   $p->deshabilitado = (bool)($ws->Deshabilitado ?? false);
   $p->empresa_Facturar_Reg_General = (bool)($ws->EmpresaFacturarRegGeneral ?? false);
