@@ -95,6 +95,18 @@ class Casanova_Payments_Service {
       $pay_url = casanova_portal_pay_expediente_url($idExpediente);
     }
 
+    // Nombre a mostrar como "pagador" por defecto (evita el genérico "WP user X").
+    $payer_default = '';
+    if (function_exists('get_userdata')) {
+      $u = get_userdata($user_id);
+      if ($u && is_object($u)) {
+        $payer_default = trim((string)($u->display_name ?? ''));
+      }
+    }
+    if ($payer_default === '') {
+      $payer_default = __('Cliente', 'casanova-portal');
+    }
+
     return [
       'user_id' => $user_id,
       'idCliente' => $idCliente,
@@ -107,7 +119,7 @@ class Casanova_Payments_Service {
       'currency' => 'EUR',
       'can_pay' => $pending > 0.01,
       'pay_url' => $pay_url,
-      'history' => self::fetch_cobros_history($idExpediente, $idCliente),
+      'history' => self::fetch_cobros_history($idExpediente, $idCliente, $payer_default),
       'expediente_pagado' => $is_paid,
       'mulligans_used' => casanova_mulligans_used_for_expediente($idExpediente, $idCliente),
       'payment_options' => $payment_options,
@@ -124,7 +136,12 @@ class Casanova_Payments_Service {
     ];
   }
 
-  private static function fetch_cobros_history(int $idExpediente, int $idCliente): array {
+  /**
+   * Devuelve histórico de cobros y mejora campos para UX:
+   * - "concept" identifica si fue Depósito / Saldo cuando viene de nuestro TPV.
+   * - "payer" sustituye el genérico "WP user X" por el nombre del cliente.
+   */
+  private static function fetch_cobros_history(int $idExpediente, int $idCliente, string $payer_default = ''): array {
     if ($idExpediente <= 0 || $idCliente <= 0 || !function_exists('casanova_giav_cobros_por_expediente_all')) {
       return [];
     }
@@ -165,6 +182,50 @@ class Casanova_Payments_Service {
 
       $payer = trim((string) ($item->Pagador ?? ''));
       $doc = trim((string) ($item->Documento ?? ''));
+
+      // --- Enriquecimiento para cobros del portal (Redsys) ---
+      // 1) Normalizar pagador: evitar "WP user X"
+      if ($payer_default !== '') {
+        if ($payer === '' || preg_match('/^wp\s*user\s*\d+/i', $payer)) {
+          $payer = $payer_default;
+        }
+      }
+
+      // 2) Detectar modo (deposit/full) desde nuestra tabla de intents y renombrar concepto.
+      // GIAV suele guardar "Pago Redsys <ORDER>" en Concepto.
+      $order = '';
+      if ($concept !== '') {
+        if (preg_match('/Redsys\s*([0-9A-Za-z]+)/i', $concept, $m)) {
+          $order = (string)($m[1] ?? '');
+        }
+      }
+      if ($order === '' && $doc !== '') {
+        // Algunos GIAV guardan order en Documento o variaciones.
+        if (preg_match('/([0-9A-Za-z]{6,})/', $doc, $m)) {
+          $order = (string)($m[1] ?? '');
+        }
+      }
+
+      if ($order !== '' && function_exists('casanova_payment_intent_get_by_order')) {
+        $intent = casanova_payment_intent_get_by_order($order);
+        if ($intent && is_object($intent)) {
+          $payload = [];
+          $payload_raw = (string)($intent->payload ?? '');
+          if ($payload_raw !== '') {
+            $decoded = json_decode($payload_raw, true);
+            if (is_array($decoded)) $payload = $decoded;
+          }
+          $mode = strtolower(trim((string)($payload['mode'] ?? '')));
+          if ($mode === 'deposit') {
+            $concept = sprintf(__('Depósito (Redsys %s)', 'casanova-portal'), $order);
+          } elseif ($mode === 'full') {
+            $concept = sprintf(__('Pago (Redsys %s)', 'casanova-portal'), $order);
+          } else {
+            // Si no sabemos modo, al menos indicamos que viene del portal.
+            $concept = sprintf(__('Pago (Redsys %s)', 'casanova-portal'), $order);
+          }
+        }
+      }
 
       $rows[] = [
         'id' => (string) ($item->Id ?? $item->IdCobro ?? $item->IdCobroSolicitud ?? uniqid('cobro-', true)),

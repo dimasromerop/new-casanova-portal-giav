@@ -84,6 +84,9 @@ function casanova_portal_payments_tick(int $idExpediente, int $idCliente, array 
 add_action('casanova_payment_reconciled', 'casanova_on_payment_reconciled_send_emails', 10, 1);
 add_action('casanova_payment_cobro_recorded', 'casanova_on_payment_cobro_recorded_send_email', 10, 1);
 
+// Mulligans: registrar movimientos por pago (en vez de solo totales).
+add_action('casanova_payment_cobro_recorded', 'casanova_on_payment_cobro_recorded_mulligans', 20, 1);
+
 /**
  * Email por COBRO registrado (parcial o total).
  * Importante: nunca debe romper NOTIFY.
@@ -147,6 +150,69 @@ function casanova_on_payment_cobro_recorded_send_email(int $intent_id): void {
     ]);
     error_log('[CASANOVA][MAIL] UPDATED: mail_cobro_sent_at (cobro_recorded)');
   }
+}
+
+/**
+ * Mulligans: añade un movimiento "earn" por cada cobro registrado por el portal.
+ * - No depende de GIAV lifetime spend.
+ * - Se preserva en el ledger porque source != 'giav'.
+ * - Evita duplicados con id estable "earn:intent:{id}".
+ */
+function casanova_on_payment_cobro_recorded_mulligans(int $intent_id): void {
+  $intent_id = (int)$intent_id;
+  if ($intent_id <= 0) return;
+  if (!function_exists('casanova_payment_intent_get')) return;
+  if (!function_exists('casanova_mulligans_ledger_add_once')) return;
+
+  $intent = casanova_payment_intent_get($intent_id);
+  if (!$intent || !is_object($intent)) return;
+
+  $user_id = (int)($intent->user_id ?? 0);
+  if ($user_id <= 0) return;
+
+  $amount = (float)($intent->amount ?? 0);
+  if ($amount <= 0.01) return;
+
+  $points = (int) floor($amount); // 1€ = 1 punto
+
+  $payload = [];
+  $payload_raw = (string)($intent->payload ?? '');
+  if ($payload_raw !== '') {
+    $decoded = json_decode($payload_raw, true);
+    if (is_array($decoded)) $payload = $decoded;
+  }
+  $mode = strtolower(trim((string)($payload['mode'] ?? '')));
+  $mode_label = ($mode === 'deposit') ? __('Depósito', 'casanova-portal') : __('Pago', 'casanova-portal');
+
+  $order = trim((string)($intent->order_redsys ?? ''));
+  $exp   = (int)($intent->id_expediente ?? 0);
+
+  $note = $mode_label;
+  if ($order !== '') {
+    $note .= ' · Redsys ' . $order;
+  }
+  if ($exp > 0) {
+    $note .= ' · ' . sprintf(__('Expediente %d', 'casanova-portal'), $exp);
+  }
+
+  $movement = [
+    'id'     => 'earn:intent:' . $intent_id,
+    'type'   => 'earn',
+    'points' => $points,
+    'source' => 'portal',
+    'ref'    => [
+      'intent_id' => $intent_id,
+      'order' => $order,
+      'expediente' => $exp,
+      'amount' => round($amount, 2),
+      'currency' => (string)($intent->currency ?? 'EUR'),
+      'mode' => $mode,
+    ],
+    'note'   => $note,
+    'ts'     => time(),
+  ];
+
+  casanova_mulligans_ledger_add_once($user_id, $movement);
 }
 
 /**

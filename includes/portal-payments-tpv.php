@@ -141,6 +141,28 @@ if (!function_exists('casanova_payments_try_giav_cobro')) {
       'response' => (string)$ds_resp,
     ];
 
+    // UX: concepto/pagador más humano.
+    $payload = [];
+    $payload_raw = (string)($intent->payload ?? '');
+    if ($payload_raw !== '') {
+      $decoded = json_decode($payload_raw, true);
+      if (is_array($decoded)) $payload = $decoded;
+    }
+    $mode = strtolower(trim((string)($payload['mode'] ?? '')));
+    $is_deposit = ($mode === 'deposit');
+
+    $payer_name = 'Portal';
+    if (!empty($intent->user_id) && function_exists('get_user_by')) {
+      $u = get_user_by('id', (int)$intent->user_id);
+      if ($u && !empty($u->display_name)) {
+        $payer_name = (string)$u->display_name;
+      }
+    }
+
+    $concepto = $is_deposit
+      ? ('Depósito Redsys ' . (string)($intent->order_redsys ?? ''))
+      : ('Pago Redsys ' . (string)($intent->order_redsys ?? ''));
+
     $giav_params = [
       'idFormaPago' => $id_forma_pago,
       'idOficina' => ($id_oficina > 0 ? (int)$id_oficina : null),
@@ -150,9 +172,9 @@ if (!function_exists('casanova_payments_try_giav_cobro')) {
       'idTipoOperacion' => 'Cobro',
       'importe' => (double)$intent->amount,
       'fechaCobro' => current_time('Y-m-d'),
-      'concepto' => 'Pago Redsys ' . (string)($intent->order_redsys ?? ''),
+      'concepto' => $concepto,
       'documento' => (string)($params['Ds_AuthorisationCode'] ?? ($params['Ds_Merchant_Identifier'] ?? '')),
-      'pagador' => (string)($intent->user_id ? ('WP user ' . (int)$intent->user_id) : 'Portal'),
+      'pagador' => $payer_name,
       'notasInternas' => wp_json_encode($notes),
       'autocompensar' => true,
       'idEntityStage' => null,

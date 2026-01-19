@@ -346,6 +346,7 @@ function casanova_mulligans_sync_user(int $user_id, bool $force = false): array|
   if (!is_array($ledger_old)) $ledger_old = [];
 
   $preserved = [];
+  $portal_earned = 0;
   foreach ($ledger_old as $row) {
     if (!is_array($row)) continue;
     $id = (string)($row['id'] ?? '');
@@ -355,6 +356,12 @@ function casanova_mulligans_sync_user(int $user_id, bool $force = false): array|
     // preservamos bonus/adjust (y cualquier otro movimiento manual)
     if (in_array($type, ['bonus','adjust'], true) || (($row['source'] ?? '') !== 'giav')) {
       $preserved[] = $row;
+
+      // Si ya estamos registrando cobros del portal como movimientos "earn",
+      // los descontamos del acumulado GIAV para evitar doble conteo.
+      if (($row['source'] ?? '') === 'portal' && $type === 'earn') {
+        $portal_earned += (int)($row['points'] ?? 0);
+      }
     }
   }
 
@@ -370,13 +377,21 @@ function casanova_mulligans_sync_user(int $user_id, bool $force = false): array|
   }
 
   // 4) Movimiento "earned" acumulado (se actualiza, no se multiplica)
+  // Importante:
+  // - Seguimos usando gasto histórico GIAV como "fuente" del total.
+  // - Pero si ya tenemos movimientos de cobros del portal, restamos sus puntos aquí.
+  //   Así el total cuadra y el usuario ve detalle sin duplicar.
+  $earned_note = ($portal_earned > 0)
+    ? 'Gasto confirmado (otros)'
+    : 'Gasto confirmado';
+
   $earned_move = [
     'id'     => 'earn:lifetime',
     'type'   => 'earn',
-    'points' => (int)$earned_points,
+    'points' => (int) max(0, $earned_points - $portal_earned),
     'source' => 'giav',
     'ref'    => 'lifetime',
-    'note'   => 'Gasto confirmado',
+    'note'   => $earned_note,
     'ts'     => time(),
   ];
 
