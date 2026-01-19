@@ -34,7 +34,10 @@ class Casanova_Trip_Service {
       $trip = self::build_trip($idCliente, $expediente_id);
       $reservas = self::build_reservas($idCliente, $expediente_id);
       $structure = self::build_package_structure($expediente_id, $reservas);
-      $map = self::build_map_from_structure($structure);
+      // Destination/map/weather are optional enrichments. They must never break the existing contract.
+      $destination = self::resolve_destination($structure);
+      $map = self::build_map_from_structure($structure, $destination);
+      $weather = self::build_weather_from_destination($destination);
       $passengers = self::build_passengers($expediente_id);
       $services = [];
       $payments = self::build_payments($user_id, $idCliente, $expediente_id, $services);
@@ -116,7 +119,9 @@ class Casanova_Trip_Service {
         'giav'   => ['ok' => true, 'source' => 'live', 'error' => null],
         // Keep the existing response contract intact.
         'trip'    => $trip,
+        'destination' => $destination,
         'map'     => $map,
+        'weather' => $weather,
         'package' => $structure['package'],
         'extras' => $structure['extras'],
         'passengers' => $passengers,
@@ -132,7 +137,9 @@ class Casanova_Trip_Service {
         'status' => 'degraded',
         'giav'   => ['ok' => false, 'source' => 'live', 'error' => $e->getMessage()],
         'trip'   => null,
+        'destination' => null,
         'map'    => null,
+        'weather' => null,
         'package' => null,
         'extras' => [],
         'passengers' => [],
@@ -152,7 +159,9 @@ class Casanova_Trip_Service {
       'status' => 'ok',
       'giav'   => ['ok' => true, 'source' => 'live', 'error' => null],
       'trip'   => null,
+      'destination' => null,
       'map'    => null,
+      'weather' => null,
       'package' => null,
       'extras' => [],
       'passengers' => [],
@@ -330,7 +339,33 @@ class Casanova_Trip_Service {
    * @param array<string,mixed> $structure
    * @return array<string,mixed>|null
    */
-  private static function build_map_from_structure(array $structure): ?array {
+  private static function build_map_from_structure(array $structure, ?array $destination = null): ?array {
+    // Prefer curated coordinates when available.
+    if (is_array($destination)) {
+      $lat = isset($destination['lat']) ? (float)$destination['lat'] : null;
+      $lng = isset($destination['lng']) ? (float)$destination['lng'] : null;
+      if ($lat && $lng) {
+        $q = $lat . ',' . $lng;
+        $out = [
+          'type' => 'point',
+          'query' => $q,
+          'hotels' => [],
+          'url' => 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($q),
+        ];
+        // If there are multiple hotels, also offer an optional route link.
+        $titles_for_route = self::extract_hotel_titles_from_structure($structure);
+        if (is_array($titles_for_route) && count($titles_for_route) >= 2) {
+          $titles_for_route = array_slice($titles_for_route, 0, 8);
+          $destination_q = rawurlencode($titles_for_route[0]);
+          $wps = array_slice($titles_for_route, 1);
+          $wps = array_map(function($t) { return rawurlencode($t); }, $wps);
+          $out['route_url'] = 'https://www.google.com/maps/dir/?api=1&destination=' . $destination_q . '&waypoints=' . implode('|', $wps);
+          $out['route_hotels'] = $titles_for_route;
+        }
+        return $out;
+      }
+    }
+
     $titles = self::extract_hotel_titles_from_structure($structure);
     if (empty($titles)) return null;
 
@@ -405,6 +440,325 @@ class Casanova_Trip_Service {
   }
 
   /**
+   * Resolve a reliable destination for the trip.
+   *
+   * Priority:
+   * 1) WP Package (JetEngine relations) -> curated lat/lng
+   * 2) GIAV prestatario address (best-effort) -> textual
+   * 3) Hotel names -> textual
+   *
+   * @param array<string,mixed> $structure
+   * @return array<string,mixed>|null
+   */
+  private static function resolve_destination(array $structure): ?array {
+    $primary_hotel = self::find_primary_hotel_service($structure);
+    if (!$primary_hotel) {
+      return null;
+    }
+
+    // 1) Try WP Package via JetEngine relations using the mapped WP hotel id.
+    $supplier_id = (int)($primary_hotel['supplier_id'] ?? 0);
+    $product_id  = (int)($primary_hotel['product_id'] ?? 0);
+    $wp_hotel_id = 0;
+    if (function_exists('casanova_portal_find_wp_mapping')) {
+      $mapping = casanova_portal_find_wp_mapping('HT', $supplier_id, $product_id);
+      if (is_array($mapping)) {
+        $wp_hotel_id = (int)($mapping['wp_object_id'] ?? 0);
+      }
+    }
+
+    if ($wp_hotel_id > 0) {
+      $pkg = self::find_wp_package_by_hotel_id($wp_hotel_id);
+      if ($pkg && isset($pkg['lat']) && isset($pkg['lng'])) {
+        return [
+          'source' => 'package_wp',
+          'package_id' => (int)($pkg['package_id'] ?? 0),
+          'label' => (string)($pkg['label'] ?? ''),
+          'lat' => (float)$pkg['lat'],
+          'lng' => (float)$pkg['lng'],
+        ];
+      }
+    }
+
+    // 2) GIAV prestatario (best-effort). We only use it if it looks usable.
+    $prestatario_address = self::extract_giav_prestatario_address($primary_hotel);
+    if ($prestatario_address) {
+      return [
+        'source' => 'giav_prestatario',
+        'label' => $prestatario_address,
+        'lat' => null,
+        'lng' => null,
+      ];
+    }
+
+    // 3) Hotel name fallback.
+    $title = trim((string)($primary_hotel['title'] ?? ''));
+    if ($title !== '') {
+      return [
+        'source' => 'hotel_name',
+        'label' => $title,
+        'lat' => null,
+        'lng' => null,
+      ];
+    }
+
+    return null;
+  }
+
+  /**
+   * @param array<string,mixed> $structure
+   * @return array<string,mixed>|null
+   */
+  private static function find_primary_hotel_service(array $structure): ?array {
+    $pkg = $structure['package'] ?? null;
+    if (is_array($pkg)) {
+      $services = $pkg['services'] ?? [];
+      if (is_array($services)) {
+        foreach ($services as $s) {
+          if (!is_array($s)) continue;
+          if ((string)($s['semantic_type'] ?? '') === 'hotel') return $s;
+        }
+      }
+    }
+    $extras = $structure['extras'] ?? [];
+    if (is_array($extras)) {
+      foreach ($extras as $s) {
+        if (!is_array($s)) continue;
+        if ((string)($s['semantic_type'] ?? '') === 'hotel') return $s;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Try to find a WP package (Paquetes Mundo/Espana) associated to a Hotel CCT
+   * through JetEngine relations.
+   *
+   * @return array{package_id:int,label:string,lat:float,lng:float}|null
+   */
+  private static function find_wp_package_by_hotel_id(int $hotel_wp_id): ?array {
+    if ($hotel_wp_id <= 0) return null;
+    global $wpdb;
+    if (!$wpdb) return null;
+
+    $rel_tables = [
+      $wpdb->prefix . 'jet_rel_78',
+      $wpdb->prefix . 'jet_rel_52',
+    ];
+
+    $package_id = 0;
+    foreach ($rel_tables as $table) {
+      $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
+      if ($exists !== $table) continue;
+      $pid = (int)$wpdb->get_var($wpdb->prepare("SELECT parent_object_id FROM `$table` WHERE child_object_id = %d LIMIT 1", $hotel_wp_id));
+      if ($pid > 0) { $package_id = $pid; break; }
+    }
+    if ($package_id <= 0) return null;
+
+    $loc = self::read_package_location_meta($package_id);
+    if (!$loc) return null;
+    if (!isset($loc['lat']) || !isset($loc['lng'])) return null;
+
+    return [
+      'package_id' => $package_id,
+      'label' => (string)($loc['label'] ?? ''),
+      'lat' => (float)$loc['lat'],
+      'lng' => (float)$loc['lng'],
+    ];
+  }
+
+  /**
+   * Best-effort reading of the JetEngine "Ubicación" metabox.
+   * We support both structured (array/json with lat/lng/address) and split meta keys.
+   *
+   * @return array{label?:string,lat?:float,lng?:float}|null
+   */
+  private static function read_package_location_meta(int $package_id): ?array {
+    if ($package_id <= 0) return null;
+
+    // First: try likely meta keys.
+    $candidates = [
+      'ubicacion',
+      'ubicacion_paquete',
+      'ubicacion_del_paquete',
+      'ubicacion_pkg',
+      'location',
+      'map',
+      'ubicacion_paquete_mapa',
+    ];
+
+    foreach ($candidates as $key) {
+      $raw = get_post_meta($package_id, $key, true);
+      $parsed = self::parse_location_value($raw);
+      if ($parsed) return $parsed;
+
+      // Split lat/lng keys.
+      $lat = get_post_meta($package_id, $key . '_lat', true);
+      $lng = get_post_meta($package_id, $key . '_lng', true);
+      if ($lat !== '' && $lng !== '') {
+        $label = get_post_meta($package_id, $key, true);
+        $label = is_string($label) ? trim($label) : '';
+        return [
+          'label' => $label,
+          'lat' => (float)$lat,
+          'lng' => (float)$lng,
+        ];
+      }
+    }
+
+    // Last resort: scan all meta for something that looks like a JetEngine map field.
+    $all = get_post_meta($package_id);
+    if (is_array($all)) {
+      foreach ($all as $k => $vals) {
+        if (!is_string($k)) continue;
+        if (!preg_match('/ubicaci|location|map/i', $k)) continue;
+        $val = is_array($vals) ? ($vals[0] ?? null) : $vals;
+        $parsed = self::parse_location_value($val);
+        if ($parsed && isset($parsed['lat']) && isset($parsed['lng'])) return $parsed;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * @return array{label?:string,lat?:float,lng?:float}|null
+   */
+  private static function parse_location_value($raw): ?array {
+    if (is_array($raw)) {
+      $lat = $raw['lat'] ?? ($raw['latitude'] ?? null);
+      $lng = $raw['lng'] ?? ($raw['longitude'] ?? null);
+      $label = $raw['address'] ?? ($raw['label'] ?? ($raw['value'] ?? ''));
+      if ($lat !== null && $lng !== null) {
+        return [
+          'label' => is_string($label) ? trim($label) : '',
+          'lat' => (float)$lat,
+          'lng' => (float)$lng,
+        ];
+      }
+      if (is_string($label) && trim($label) !== '') {
+        return ['label' => trim($label)];
+      }
+      return null;
+    }
+
+    if (is_string($raw)) {
+      $s = trim($raw);
+      if ($s === '') return null;
+
+      // JSON string?
+      if ($s[0] === '{' || $s[0] === '[') {
+        $decoded = json_decode($s, true);
+        if (is_array($decoded)) {
+          return self::parse_location_value($decoded);
+        }
+      }
+
+      // Serialized?
+      if (preg_match('/^a:\d+:/', $s)) {
+        $un = @unserialize($s);
+        if (is_array($un)) {
+          return self::parse_location_value($un);
+        }
+      }
+
+      // Plain address string.
+      return ['label' => $s];
+    }
+
+    return null;
+  }
+
+  /**
+   * Try to extract a usable address from GIAV prestatario/provider fields if present in
+   * the normalized service object.
+   *
+   * NOTE: This is best-effort. We only accept it when it looks like a real place.
+   */
+  private static function extract_giav_prestatario_address(array $hotel_service): ?string {
+    // We don't have full GIAV supplier/prestador data in the normalized service by default.
+    // If some integrations already push it in details, we consume it; otherwise we bail.
+    $details = $hotel_service['details'] ?? null;
+    if (!is_array($details)) return null;
+
+    // Common fields we might have:
+    $candidates = [
+      $details['prestatario_address'] ?? null,
+      $details['prestatario_direccion'] ?? null,
+      $details['prestatario'] ?? null,
+      $details['address'] ?? null,
+      $details['direccion'] ?? null,
+    ];
+    foreach ($candidates as $c) {
+      if (!is_string($c)) continue;
+      $s = trim(preg_replace('/\s+/', ' ', $c));
+      if ($s === '') continue;
+      // Minimal sanity: avoid very short strings.
+      if (strlen($s) < 8) continue;
+      return $s;
+    }
+    return null;
+  }
+
+  /**
+   * @return array<string,mixed>|null
+   */
+  private static function build_weather_from_destination(?array $destination): ?array {
+    if (!is_array($destination)) return null;
+    $lat = isset($destination['lat']) ? (float)$destination['lat'] : null;
+    $lng = isset($destination['lng']) ? (float)$destination['lng'] : null;
+    if (!$lat || !$lng) return null;
+
+    $cache_key = 'casanova_weather_' . md5($lat . ',' . $lng);
+    $cached = get_transient($cache_key);
+    if (is_array($cached)) return $cached;
+
+    $url = add_query_arg([
+      'latitude' => $lat,
+      'longitude' => $lng,
+      'daily' => 'weathercode,temperature_2m_max,temperature_2m_min',
+      'timezone' => 'auto',
+      'forecast_days' => 5,
+    ], 'https://api.open-meteo.com/v1/forecast');
+
+    $resp = wp_remote_get($url, [
+      'timeout' => 4,
+      'redirection' => 2,
+    ]);
+    if (is_wp_error($resp)) {
+      return null;
+    }
+    $code = (int) wp_remote_retrieve_response_code($resp);
+    if ($code < 200 || $code >= 300) {
+      return null;
+    }
+    $body = wp_remote_retrieve_body($resp);
+    if (!is_string($body) || trim($body) === '') return null;
+    $json = json_decode($body, true);
+    if (!is_array($json)) return null;
+    $daily = $json['daily'] ?? null;
+    if (!is_array($daily)) return null;
+
+    $tmin = $daily['temperature_2m_min'][0] ?? null;
+    $tmax = $daily['temperature_2m_max'][0] ?? null;
+    $wcode = $daily['weathercode'][0] ?? null;
+
+    if ($tmin === null || $tmax === null || $wcode === null) return null;
+
+    $out = [
+      'provider' => 'open-meteo',
+      'today' => [
+        't_min' => (float)$tmin,
+        't_max' => (float)$tmax,
+        'code' => (int)$wcode,
+      ],
+    ];
+
+    set_transient($cache_key, $out, 2 * HOUR_IN_SECONDS);
+    return $out;
+  }
+
+  /**
    * @return array<string,mixed>
    */
   private static function normalize_service($r, int $expediente_id, bool $included, bool $allow_voucher, bool $show_price = true): array {
@@ -415,11 +769,14 @@ class Casanova_Trip_Service {
     $rid = (int) ($r->Id ?? 0);
     $price = null;
     // Optional WP-side media (hotel/golf images) if there is mapping GIAV→WP.
+    $supplier_id = (int) ($m['id_proveedor'] ?? ($r->IdProveedor ?? 0));
+    $product_id  = (int) ($m['id_producto'] ?? ($r->IdProducto ?? 0));
+
     $media = function_exists('casanova_portal_resolve_service_media')
       ? casanova_portal_resolve_service_media(
           $tipo,
-          (int) ($m['id_proveedor'] ?? ($r->IdProveedor ?? 0)),
-          (int) ($m['id_producto'] ?? ($r->IdProducto ?? 0)),
+          $supplier_id,
+          $product_id,
           $title
         )
       : ['image_url' => null, 'permalink' => null, 'source' => null];
@@ -438,6 +795,9 @@ class Casanova_Trip_Service {
     $semantic_type = self::resolve_semantic_type($tipo, $r);
     $details = self::map_service_details($semantic_type, $r, $m, $expediente_id, $rid);
 
+    $supplier_id = (int) ($m['id_proveedor'] ?? ($r->IdProveedor ?? 0));
+    $product_id  = (int) ($m['id_producto'] ?? ($r->IdProducto ?? 0));
+
     return [
       'id' => $code ?: ('srv-' . $rid),
       'code' => $code,
@@ -445,6 +805,9 @@ class Casanova_Trip_Service {
       'giav_type' => $tipo !== '' ? $tipo : 'OT',
       'semantic_type' => $semantic_type,
       'title' => $title,
+      // Optional GIAV identifiers (used for destination resolution, mapping, debugging).
+      'supplier_id' => $supplier_id > 0 ? $supplier_id : null,
+      'product_id'  => $product_id > 0 ? $product_id : null,
       'date_from' => $date_from,
       'date_to' => $date_to,
       'date_range' => $dates,

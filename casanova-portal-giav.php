@@ -212,6 +212,7 @@ require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/inbox-controller.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-payments-tpv.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-payments-cron.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-calendar.php';
+  require_once __DIR__ . '/includes/portal-access-gate.php';
 
 });
 // Toast notice (post-redirect feedback)
