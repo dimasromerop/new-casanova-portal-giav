@@ -1383,6 +1383,18 @@ a { color: inherit; text-decoration: none; }
 .cp-ledger-date{ color: var(--muted); font-size:12px; margin-top:2px; }
 
 /* ===== User menu (top-right) ===== */
+.cp-lang{ position: relative; margin-left: 8px; }
+.cp-lang-btn{ display:flex; align-items:center; gap: 8px; border:1px solid rgba(0,0,0,0.12); background: #fff; padding: 6px 10px; border-radius: 999px; cursor: pointer; font-weight: 800; color:#111; }
+.cp-lang-btn:hover{ background: rgba(0,0,0,0.03); }
+.cp-lang-btn:focus{ outline: 2px solid rgba(15,61,46,0.25); outline-offset: 2px; }
+.cp-lang-ico svg{ width: 18px; height: 18px; }
+.cp-lang-label{ font-size: 12px; letter-spacing: 0.02em; }
+.cp-lang-menu{ position:absolute; right: 0; top: 42px; width: 180px; background: #fff; border: 1px solid rgba(0,0,0,0.12); border-radius: 14px; box-shadow: 0 18px 60px rgba(0,0,0,0.18); padding: 8px; z-index: 50; }
+.cp-lang-item{ width:100%; text-align:left; border:0; background: transparent; padding: 10px 10px; border-radius: 12px; cursor:pointer; font-weight: 700; color: #111; display:flex; align-items:center; justify-content:space-between; }
+.cp-lang-item:hover{ background: rgba(0,0,0,0.04); }
+.cp-lang-item.is-active{ background: rgba(15,61,46,0.06); }
+.cp-lang-check{ color: var(--primary, #0f3d2e); font-weight: 900; }
+
 .cp-user{ position: relative; margin-left: 8px; }
 .cp-user-btn{ border:0; background: transparent; padding: 2px; border-radius: 999px; cursor: pointer; }
 .cp-user-btn:focus{ outline: 2px solid rgba(15,61,46,0.25); outline-offset: 2px; }
@@ -1392,9 +1404,11 @@ a { color: inherit; text-decoration: none; }
 .cp-user-head{ display:flex; align-items:center; gap: 10px; padding: 8px; border-bottom: 1px solid rgba(0,0,0,0.08); margin-bottom: 6px; }
 .cp-user-name{ font-weight: 900; }
 .cp-user-email{ color: var(--muted); font-size: 12px; margin-top: 2px; }
-.cp-user-item{ width:100%; text-align:left; border:0; background: transparent; padding: 10px 10px; border-radius: 12px; cursor:pointer; font-weight: 700; color: #111; }
+.cp-user-item{ width:100%; text-align:left; border:0; background: transparent; padding: 10px 10px; border-radius: 12px; cursor:pointer; font-weight: 700; color: #111; display:flex; align-items:center; gap: 10px; }
 .cp-user-item:hover{ background: rgba(0,0,0,0.04); }
 .cp-user-item.is-danger{ color: #b00020; }
+.cp-user-item-ico{ display:inline-flex; align-items:center; justify-content:center; }
+.cp-user-item-ico svg{ width: 18px; height: 18px; }
 .cp-user-sep{ height: 1px; background: rgba(0,0,0,0.08); margin: 8px 0; }
 
 /* ===== Profile / forms ===== */

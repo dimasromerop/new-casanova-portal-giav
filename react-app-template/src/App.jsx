@@ -390,6 +390,36 @@ function IconStar() {
   );
 }
 
+function IconGlobe() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <circle cx={12} cy={12} r={9} fill="none" stroke="currentColor" strokeWidth={1.5} />
+      <path d="M3 12h18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+      <path d="M12 3c3 3 3 15 0 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+      <path d="M12 3c-3 3-3 15 0 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconUser() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <circle cx={12} cy={9} r={3.2} fill="none" stroke="currentColor" strokeWidth={1.5} />
+      <path d="M6.2 20c1.6-3 4-4.5 5.8-4.5s4.2 1.5 5.8 4.5" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconLogout() {
+  return (
+    <svg {...KPI_ICON_PROPS} aria-hidden="true">
+      <path d="M10 7V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-1" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+      <path d="M3 12h9" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+      <path d="M7 8l-4 4 4 4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function KpiCard({ icon, label, value, colorClass = "" }) {
   return (
     <div className="cp-kpi-card">
@@ -530,7 +560,7 @@ function Sidebar({ view, unread = 0 }) {
   );
 }
 
-function Topbar({ title, chip, onRefresh, isRefreshing, profile, onGo, onLogout }) {
+function Topbar({ title, chip, onRefresh, isRefreshing, profile, onGo, onLogout, onLocale }) {
   return (
     <div className="cp-topbar">
       <div className="cp-topbar-inner">
@@ -541,9 +571,59 @@ function Topbar({ title, chip, onRefresh, isRefreshing, profile, onGo, onLogout 
           <button className="cp-btn" onClick={onRefresh}>
             Actualizar
           </button>
+          <LanguageMenu locale={profile?.locale} onLocale={onLocale} />
           <UserMenu profile={profile} onGo={onGo} onLogout={onLogout} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function LanguageMenu({ locale, onLocale }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const current = locale || "es_ES";
+
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!open) return;
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const items = [
+    { value: "es_ES", label: "ES", name: "Español" },
+    { value: "en_US", label: "EN", name: "English" },
+  ];
+  const active = items.find((i) => i.value === current) || items[0];
+
+  return (
+    <div className="cp-lang" ref={ref}>
+      <button type="button" className="cp-lang-btn" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open ? "true" : "false"} title={active.name}>
+        <span className="cp-lang-ico" aria-hidden="true"><IconGlobe /></span>
+        <span className="cp-lang-label">{active.label}</span>
+      </button>
+      {open ? (
+        <div className="cp-lang-menu" role="menu">
+          {items.map((it) => (
+            <button
+              key={it.value}
+              type="button"
+              className={`cp-lang-item ${it.value === current ? "is-active" : ""}`}
+              onClick={() => {
+                setOpen(false);
+                if (typeof onLocale === "function") onLocale(it.value);
+              }}
+              role="menuitem"
+            >
+              <span className="cp-lang-item-label">{it.name}</span>
+              {it.value === current ? <span className="cp-lang-check" aria-hidden="true">✓</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -599,17 +679,17 @@ function UserMenu({ profile, onGo, onLogout }) {
           </div>
 
           <button type="button" className="cp-user-item" onClick={() => { setOpen(false); onGo("profile"); }} role="menuitem">
+            <span className="cp-user-item-ico" aria-hidden="true"><IconUser /></span>
             Mi perfil
           </button>
           <button type="button" className="cp-user-item" onClick={() => { setOpen(false); onGo("security"); }} role="menuitem">
+            <span className="cp-user-item-ico" aria-hidden="true"><IconShieldCheck /></span>
             Seguridad
-          </button>
-          <button type="button" className="cp-user-item" onClick={() => { setOpen(false); onGo("profile"); }} role="menuitem">
-            Idioma
           </button>
 
           <div className="cp-user-sep" />
           <button type="button" className="cp-user-item is-danger" onClick={() => { setOpen(false); onLogout(); }} role="menuitem">
+            <span className="cp-user-item-ico" aria-hidden="true"><IconLogout /></span>
             Cerrar sesión
           </button>
         </div>
@@ -2656,6 +2736,7 @@ function App() {
           profile={profile}
           onGo={go}
           onLogout={logout}
+          onLocale={setLocale}
         />
         {toast ? (
           <div className={`cp-toast is-${toast.variant || 'info'}`}>{toast.message}</div>
