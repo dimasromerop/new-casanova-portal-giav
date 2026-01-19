@@ -541,18 +541,30 @@ class Casanova_Trip_Service {
     global $wpdb;
     if (!$wpdb) return null;
 
-    $rel_tables = [
-      $wpdb->prefix . 'jet_rel_78',
-      $wpdb->prefix . 'jet_rel_52',
-    ];
+    // JetEngine stores each relation in its own table jet_rel_<REL_ID>.
+    // We have multiple relations (Paquetes Mundo -> Hoteles, Paquetes Espana -> Hoteles).
+    // We must look up the *parent_object_id* (package post ID) by *child_object_id* (hotel CCT ID)
+    // in the correct table.
+    $rel_ids = [78, 52];
 
     $package_id = 0;
-    foreach ($rel_tables as $table) {
+    foreach ($rel_ids as $rel_id) {
+      $rel_id = (int)$rel_id;
+      $table = $wpdb->prefix . 'jet_rel_' . $rel_id;
+
       $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
       if ($exists !== $table) continue;
-      $pid = (int)$wpdb->get_var($wpdb->prepare("SELECT parent_object_id FROM `$table` WHERE child_object_id = %d LIMIT 1", $hotel_wp_id));
+
+      // Use rel_id filter for safety, and pick the newest match.
+      $pid = (int)$wpdb->get_var($wpdb->prepare(
+        "SELECT parent_object_id FROM `{$table}` WHERE rel_id = %d AND child_object_id = %d ORDER BY _ID DESC LIMIT 1",
+        $rel_id,
+        $hotel_wp_id
+      ));
+
       if ($pid > 0) { $package_id = $pid; break; }
     }
+
     if ($package_id <= 0) return null;
 
     $loc = self::read_package_location_meta($package_id);
@@ -568,7 +580,7 @@ class Casanova_Trip_Service {
   }
 
   /**
-   * Best-effort reading of the JetEngine "Ubicación" metabox.
+   * Best-effort reading of the JetEngine "Ubicacion" metabox.
    * We support both structured (array/json with lat/lng/address) and split meta keys.
    *
    * @return array{label?:string,lat?:float,lng?:float}|null
@@ -615,6 +627,40 @@ class Casanova_Trip_Service {
         $val = is_array($vals) ? ($vals[0] ?? null) : $vals;
         $parsed = self::parse_location_value($val);
         if ($parsed && isset($parsed['lat']) && isset($parsed['lng'])) return $parsed;
+      }
+    }
+
+
+
+    // Last resort: JetEngine map fields may store lat/lng under hashed meta keys like <field_id>_lat / <field_id>_lng.
+    // Those keys may not contain "ubicacion" in their name, so we detect any valid pair.
+    $all = get_post_meta($package_id);
+    if (is_array($all)) {
+      foreach ($all as $k => $vals) {
+        if (!is_string($k)) continue;
+        if (!preg_match('/_lat$/i', $k)) continue;
+        $base = preg_replace('/_lat$/i', '', $k);
+        $k_lng = $base . '_lng';
+        if (!array_key_exists($k_lng, $all)) continue;
+
+        $v_lat = is_array($vals) ? ($vals[0] ?? '') : $vals;
+        $v_lng_vals = $all[$k_lng];
+        $v_lng = is_array($v_lng_vals) ? ($v_lng_vals[0] ?? '') : $v_lng_vals;
+
+        if ($v_lat === '' || $v_lng === '') continue;
+        if (!is_numeric($v_lat) || !is_numeric($v_lng)) continue;
+
+        $lat = (float)$v_lat;
+        $lng = (float)$v_lng;
+        if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) continue;
+
+        $label = get_post_meta($package_id, 'ubicacion_paquete', true);
+        $label = is_string($label) ? trim($label) : '';
+        return [
+          'label' => $label,
+          'lat' => $lat,
+          'lng' => $lng,
+        ];
       }
     }
 
@@ -676,28 +722,60 @@ class Casanova_Trip_Service {
    * NOTE: This is best-effort. We only accept it when it looks like a real place.
    */
   private static function extract_giav_prestatario_address(array $hotel_service): ?string {
-    // We don't have full GIAV supplier/prestador data in the normalized service by default.
-    // If some integrations already push it in details, we consume it; otherwise we bail.
-    $details = $hotel_service['details'] ?? null;
-    if (!is_array($details)) return null;
-
-    // Common fields we might have:
-    $candidates = [
-      $details['prestatario_address'] ?? null,
-      $details['prestatario_direccion'] ?? null,
-      $details['prestatario'] ?? null,
-      $details['address'] ?? null,
-      $details['direccion'] ?? null,
-    ];
-    foreach ($candidates as $c) {
-      if (!is_string($c)) continue;
-      $s = trim(preg_replace('/\s+/', ' ', $c));
-      if ($s === '') continue;
-      // Minimal sanity: avoid very short strings.
-      if (strlen($s) < 8) continue;
-      return $s;
+    // Prefer explicit prestatario id if available (WsReserva has IdPrestatario).
+    $pid = (int)($hotel_service['prestatario_id'] ?? 0);
+    if ($pid <= 0) {
+      $details = $hotel_service['details'] ?? null;
+      if (is_array($details)) {
+        $pid = (int)($details['prestatario_id'] ?? ($details['IdPrestatario'] ?? 0));
+      }
     }
-    return null;
+    if ($pid <= 0) return null;
+
+    // Cache to avoid repeated SOAP calls.
+    $cache_key = 'casanova_prestatario_addr_' . $pid;
+    $cached = get_transient($cache_key);
+    if (is_string($cached) && $cached !== '') return $cached;
+
+    if (!function_exists('casanova_giav_call')) return null;
+
+    $res = casanova_giav_call('Prestatariol_GET', ['id' => $pid]);
+    if (is_wp_error($res)) return null;
+
+    // Response wrapper can vary; handle both direct and wrapped result.
+    $obj = null;
+    if (is_object($res) && isset($res->Prestatariol_GETResult)) {
+      $obj = $res->Prestatariol_GETResult;
+    } elseif (is_object($res)) {
+      $obj = $res;
+    }
+    if (!is_object($obj)) return null;
+
+    $parts = [];
+    foreach (['Direccion','CodPostal','Poblacion','Provincia','Pais'] as $k) {
+      $v = $obj->$k ?? '';
+      if (!is_string($v)) continue;
+      $v = trim(preg_replace('/\s+/', ' ', $v));
+      if ($v === '') continue;
+      $parts[] = $v;
+    }
+
+    // If Direccion is empty, fall back to Nombre + Poblacion/Pais etc.
+    if (!$parts) {
+      $nombre = $obj->Nombre ?? '';
+      if (is_string($nombre)) {
+        $nombre = trim(preg_replace('/\s+/', ' ', $nombre));
+      } else {
+        $nombre = '';
+      }
+      if ($nombre !== '') $parts[] = $nombre;
+    }
+
+    $addr = trim(implode(', ', $parts));
+    if ($addr === '' || strlen($addr) < 8) return null;
+
+    set_transient($cache_key, $addr, 7 * DAY_IN_SECONDS);
+    return $addr;
   }
 
   /**
@@ -814,6 +892,8 @@ class Casanova_Trip_Service {
     $supplier_id = (int) ($m['id_proveedor'] ?? ($r->IdProveedor ?? 0));
     $product_id  = (int) ($m['id_producto'] ?? ($r->IdProducto ?? 0));
 
+    $prestatario_id = (int) ($m['id_prestatario'] ?? ($r->IdPrestatario ?? 0));
+
     return [
       'id' => $code ?: ('srv-' . $rid),
       'code' => $code,
@@ -824,6 +904,7 @@ class Casanova_Trip_Service {
       // Optional GIAV identifiers (used for destination resolution, mapping, debugging).
       'supplier_id' => $supplier_id > 0 ? $supplier_id : null,
       'product_id'  => $product_id > 0 ? $product_id : null,
+      'prestatario_id' => $prestatario_id > 0 ? $prestatario_id : null,
       'date_from' => $date_from,
       'date_to' => $date_to,
       'date_range' => $dates,
