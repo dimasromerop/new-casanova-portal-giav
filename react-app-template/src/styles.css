@@ -1046,6 +1046,12 @@ a { color: inherit; text-decoration: none; }
   line-height: 1;
 }
 
+.cp-weather__icon-img {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 .cp-weather__temp {
   font-size: 12px;
   font-weight: 700;

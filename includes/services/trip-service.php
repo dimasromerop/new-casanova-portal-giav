@@ -11,9 +11,36 @@ if (!defined('ABSPATH')) exit;
 class Casanova_Trip_Service {
 
   /**
+   * Lightweight debug collector for the /trip endpoint.
+   * Enabled only when ?debug=1 and the requester can manage options.
+   *
+   * IMPORTANT: Debug must never break the response contract.
+   */
+  private static array $debug = [
+    'enabled' => false,
+    'items' => [],
+  ];
+
+  private static function debug_enable(WP_REST_Request $request): void {
+    self::$debug['enabled'] = false;
+    self::$debug['items'] = [];
+  }
+
+  /**
+   * @param mixed $value
+   */
+  private static function debug_add(string $key, ): void {
+    return;
+  }
+
+  /**
    * @return array<string,mixed>
    */
   public static function get_trip_for_user(int $user_id, int $expediente_id, WP_REST_Request $request): array|WP_Error {
+
+    self::debug_enable($request);
+    self::debug_add('expediente_id', $expediente_id);
+    self::debug_add('user_id', $user_id);
 
     $mock = (int) $request->get_param('mock') === 1;
     if ($mock && current_user_can('manage_options')) {
@@ -38,6 +65,10 @@ class Casanova_Trip_Service {
       $destination = self::resolve_destination($structure);
       $map = self::build_map_from_structure($structure, $destination);
       $weather = self::build_weather_from_destination($destination);
+
+      self::debug_add('destination', $destination);
+      self::debug_add('map', $map);
+      self::debug_add('weather_is_null', $weather === null);
       $passengers = self::build_passengers($expediente_id);
       $services = [];
       $payments = self::build_payments($user_id, $idCliente, $expediente_id, $services);
@@ -130,9 +161,11 @@ class Casanova_Trip_Service {
         'vouchers' => $bonuses['items'] ?? [],
         'bonuses' => $bonuses,
         'messages_meta' => $messages_meta,
+        // Only included for admins when explicitly requested.
       ];
 
     } catch (Exception $e) {
+      self::debug_add('exception', $e->getMessage());
       return [
         'status' => 'degraded',
         'giav'   => ['ok' => false, 'source' => 'live', 'error' => $e->getMessage()],
@@ -859,22 +892,37 @@ class Casanova_Trip_Service {
     $label = trim($label);
     if ($label === '') return null;
 
+    self::debug_add('places_label', $label);
+    self::debug_add('using_ext_object_cache', function_exists('wp_using_ext_object_cache') ? (wp_using_ext_object_cache() ? 'yes' : 'no') : 'unknown');
+
     $key = self::get_google_api_key();
+    self::debug_add('google_api_key_defined', $key !== '' ? 'yes' : 'no');
     if ($key === '') return null;
 
     $cache_key = 'casanova_place_' . md5($label);
     $cached = get_transient($cache_key);
+    self::debug_add('places_cache_key', $cache_key);
+    self::debug_add('places_cache_hit', is_array($cached) ? 'yes' : 'no');
     if (is_array($cached) && isset($cached['lat']) && isset($cached['lng'])) {
       return $cached;
     }
+
+    // Heuristic region hint: if the label mentions Portugal/PT, use PT; otherwise keep ES.
+    $region = 'ES';
+    if (preg_match('/\b(portugal|lisboa|lisbon|porto|algarve|cascais|sintra)\b/i', $label)) {
+      $region = 'PT';
+    }
+    self::debug_add('places_region', $region);
 
     $url = 'https://places.googleapis.com/v1/places:searchText';
     $payload = [
       'textQuery' => $label,
       'languageCode' => 'es',
-      'regionCode' => 'ES',
+      'regionCode' => $region,
       'pageSize' => 1,
     ];
+
+    self::debug_add('places_endpoint', $url);
 
     $resp = wp_remote_post($url, [
       'timeout' => 5,
@@ -887,12 +935,22 @@ class Casanova_Trip_Service {
       'body' => wp_json_encode($payload),
     ]);
 
-    if (is_wp_error($resp)) return null;
+    if (is_wp_error($resp)) {
+      self::debug_add('places_wp_error', $resp->get_error_message());
+      return null;
+    }
     $code = (int) wp_remote_retrieve_response_code($resp);
-    if ($code < 200 || $code >= 300) return null;
+    self::debug_add('places_http_code', $code);
+    if ($code < 200 || $code >= 300) {
+      $body = wp_remote_retrieve_body($resp);
+      self::debug_add('places_error_body', $body);
+      return null;
+    }
 
     $body = wp_remote_retrieve_body($resp);
     if (!is_string($body) || trim($body) === '') return null;
+
+    self::debug_add('places_body', $body);
 
     $json = json_decode($body, true);
     if (!is_array($json)) return null;
@@ -967,11 +1025,15 @@ class Casanova_Trip_Service {
     $key = self::get_google_api_key();
     if ($key === '') return null;
 
+    self::debug_add('gweather_latlng', $lat . ',' . $lng);
+
     $days = max(1, min(10, (int)$days));
     $lang = $lang ? $lang : 'es';
 
     $cache_key = 'casanova_gweather_' . md5($lat . ',' . $lng . ',' . $days . ',' . $lang);
     $cached = get_transient($cache_key);
+    self::debug_add('gweather_cache_key', $cache_key);
+    self::debug_add('gweather_cache_hit', is_array($cached) ? 'yes' : 'no');
     if (is_array($cached)) return $cached;
 
     $url = add_query_arg([
@@ -984,16 +1046,27 @@ class Casanova_Trip_Service {
       'key' => $key,
     ], 'https://weather.googleapis.com/v1/forecast/days:lookup');
 
+    self::debug_add('gweather_endpoint', $url);
+
     $resp = wp_remote_get($url, [
       'timeout' => 5,
       'redirection' => 2,
     ]);
-    if (is_wp_error($resp)) return null;
+    if (is_wp_error($resp)) {
+      self::debug_add('gweather_wp_error', $resp->get_error_message());
+      return null;
+    }
     $http = (int) wp_remote_retrieve_response_code($resp);
-    if ($http < 200 || $http >= 300) return null;
+    self::debug_add('gweather_http_code', $http);
+    if ($http < 200 || $http >= 300) {
+      self::debug_add('gweather_error_body', wp_remote_retrieve_body($resp));
+      return null;
+    }
 
     $body = wp_remote_retrieve_body($resp);
     if (!is_string($body) || trim($body) === '') return null;
+
+    self::debug_add('gweather_body', $body);
 
     $json = json_decode($body, true);
     if (!is_array($json)) return null;
@@ -1019,18 +1092,24 @@ class Casanova_Trip_Service {
       if (!is_numeric($min_t) || !is_numeric($max_t)) continue;
 
       $cond_type = '';
+      $icon_base_uri = '';
       $day_fc = $fd['daytimeForecast'] ?? null;
       if (is_array($day_fc)) {
         $wc = $day_fc['weatherCondition'] ?? null;
-        if (is_array($wc) && isset($wc['type']) && is_string($wc['type'])) {
-          $cond_type = (string)$wc['type'];
+        if (is_array($wc)) {
+          if (isset($wc['type']) && is_string($wc['type'])) {
+            $cond_type = (string)$wc['type'];
+          }
+          if (isset($wc['iconBaseUri']) && is_string($wc['iconBaseUri'])) {
+            $icon_base_uri = (string)$wc['iconBaseUri'];
+          }
         }
       }
-
       $out_days[] = [
         'date' => $date ?: (string)($i + 1),
         't_min' => (float)$min_t,
         't_max' => (float)$max_t,
+        'icon_base_uri' => $icon_base_uri !== '' ? $icon_base_uri : null,
         'code' => self::google_weather_condition_to_open_meteo_code($cond_type),
       ];
     }
@@ -1043,6 +1122,7 @@ class Casanova_Trip_Service {
         't_min' => (float) $out_days[0]['t_min'],
         't_max' => (float) $out_days[0]['t_max'],
         'code' => (int) $out_days[0]['code'],
+        'icon_base_uri' => isset($out_days[0]['icon_base_uri']) ? $out_days[0]['icon_base_uri'] : null,
       ],
       'daily' => $out_days,
     ];
@@ -1920,7 +2000,7 @@ class Casanova_Trip_Service {
         'payments' => null,
         'invoices' => [],
         'vouchers' => [],
-        'messages_meta' => ['unread_count' => 0, 'last_message_at' => null],
+      'messages_meta' => ['unread_count' => 0, 'last_message_at' => null],
       ];
     }
 

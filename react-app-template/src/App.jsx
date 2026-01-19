@@ -801,20 +801,32 @@ function weekdayShortES(isoDate) {
 function TripWeather({ weather }) {
   const days = Array.isArray(weather?.daily) ? weather.daily : [];
   const slice = days.slice(0, 5);
+  const provider = String(weather?.provider || "");
   if (!slice.length) return null;
 
+  const title = "Previsión en destino";
+
+  function iconNode(d) {
+    const base = d?.icon_base_uri || d?.iconBaseUri || "";
+    if (base && provider === "google-weather") {
+      // Google Weather icons: iconBaseUri + (.svg) per docs.
+      const src = String(base).endsWith(".svg") ? String(base) : String(base) + ".svg";
+      return <img className="cp-weather__icon-img" src={src} alt="" loading="lazy" />;
+    }
+    return <span aria-hidden="true">{weatherIconFor(d?.code)}</span>;
+  }
+
   return (
-    <div className="cp-weather" title="Previsión (Open-Meteo)">
+    <div className="cp-weather" title={title}>
       <div className="cp-weather__title">Tiempo</div>
       <div className="cp-weather__row">
         {slice.map((d, idx) => {
           const tmin = Number(d?.t_min);
           const tmax = Number(d?.t_max);
-          const code = d?.code;
           return (
             <div key={idx} className="cp-weather__day">
               <div className="cp-weather__dow">{weekdayShortES(d?.date)}</div>
-              <div className="cp-weather__icon">{weatherIconFor(code)}</div>
+              <div className="cp-weather__icon">{iconNode(d)}</div>
               <div className="cp-weather__temp">
                 {Number.isFinite(tmax) ? Math.round(tmax) : "–"}° /{" "}
                 {Number.isFinite(tmin) ? Math.round(tmin) : "–"}°
