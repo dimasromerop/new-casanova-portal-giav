@@ -774,7 +774,60 @@ function Tabs({ tab, onTab }) {
   );
 }
 
-function TripHeader({ trip, payments }) {
+function weatherIconFor(code) {
+  const c = Number(code);
+  if (!Number.isFinite(c)) return "";
+  if (c === 0) return "☀️";
+  if (c >= 1 && c <= 3) return "⛅";
+  if (c === 45 || c === 48) return "🌫️";
+  if (c >= 51 && c <= 57) return "🌦️";
+  if (c >= 61 && c <= 67) return "🌧️";
+  if (c >= 71 && c <= 77) return "🌨️";
+  if (c >= 80 && c <= 82) return "🌧️";
+  if (c >= 95) return "⛈️";
+  return "🌤️";
+}
+
+function weekdayShortES(isoDate) {
+  if (!isoDate) return "";
+  try {
+    const d = new Date(String(isoDate));
+    return new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(d);
+  } catch {
+    return "";
+  }
+}
+
+function TripWeather({ weather }) {
+  const days = Array.isArray(weather?.daily) ? weather.daily : [];
+  const slice = days.slice(0, 5);
+  if (!slice.length) return null;
+
+  return (
+    <div className="cp-weather" title="Previsión (Open-Meteo)">
+      <div className="cp-weather__title">Tiempo</div>
+      <div className="cp-weather__row">
+        {slice.map((d, idx) => {
+          const tmin = Number(d?.t_min);
+          const tmax = Number(d?.t_max);
+          const code = d?.code;
+          return (
+            <div key={idx} className="cp-weather__day">
+              <div className="cp-weather__dow">{weekdayShortES(d?.date)}</div>
+              <div className="cp-weather__icon">{weatherIconFor(code)}</div>
+              <div className="cp-weather__temp">
+                {Number.isFinite(tmax) ? Math.round(tmax) : "–"}° /{" "}
+                {Number.isFinite(tmin) ? Math.round(tmin) : "–"}°
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TripHeader({ trip, payments, map, weather }) {
   const r = normalizeTripDates(trip);
   return (
     <div className="cp-card" style={{ marginTop: 14 }}>
@@ -787,10 +840,21 @@ function TripHeader({ trip, payments }) {
             {trip?.code || `Expediente #${trip?.id || "—"}`} · {trip?.status || "—"}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="cp-trip-head__right">
           <div className="cp-meta">
             <span className="cp-strong">Fechas:</span> {formatDateES(r.start)} – {formatDateES(r.end)}
           </div>
+          {map?.url ? (
+            <a
+              className="cp-btn"
+              href={String(map.url)}
+              target="_blank"
+              rel="noreferrer"
+              title={map?.type === "route" ? "Ver ruta en Google Maps" : "Ver mapa en Google Maps"}
+            >
+              {map?.type === "route" ? "Ver ruta" : "Ver mapa"}
+            </a>
+          ) : null}
           <button
             className="cp-btn"
             onClick={() => {
@@ -799,6 +863,7 @@ function TripHeader({ trip, payments }) {
           >
             Ver pagos
           </button>
+          <TripWeather weather={weather} />
         </div>
       </div>
     </div>
@@ -1413,7 +1478,7 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
         </div>
       </div>
 
-      <TripHeader trip={trip} payments={payments} />
+      <TripHeader trip={trip} payments={payments} map={detail?.map} weather={detail?.weather} />
 
       <Tabs
         tab={tab}

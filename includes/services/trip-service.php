@@ -739,19 +739,35 @@ class Casanova_Trip_Service {
     $daily = $json['daily'] ?? null;
     if (!is_array($daily)) return null;
 
-    $tmin = $daily['temperature_2m_min'][0] ?? null;
-    $tmax = $daily['temperature_2m_max'][0] ?? null;
-    $wcode = $daily['weathercode'][0] ?? null;
+    $times = $daily['time'] ?? [];
+    $tmins = $daily['temperature_2m_min'] ?? [];
+    $tmaxs = $daily['temperature_2m_max'] ?? [];
+    $wcodes = $daily['weathercode'] ?? [];
 
-    if ($tmin === null || $tmax === null || $wcode === null) return null;
+    $tmin0 = $tmins[0] ?? null;
+    $tmax0 = $tmaxs[0] ?? null;
+    $wcode0 = $wcodes[0] ?? null;
+    if ($tmin0 === null || $tmax0 === null || $wcode0 === null) return null;
+
+    $days = [];
+    $count = min(5, count($times), count($tmins), count($tmaxs), count($wcodes));
+    for ($i = 0; $i < $count; $i++) {
+      $days[] = [
+        'date' => (string) $times[$i],
+        't_min' => (float) $tmins[$i],
+        't_max' => (float) $tmaxs[$i],
+        'code' => (int) $wcodes[$i],
+      ];
+    }
 
     $out = [
       'provider' => 'open-meteo',
       'today' => [
-        't_min' => (float)$tmin,
-        't_max' => (float)$tmax,
-        'code' => (int)$wcode,
+        't_min' => (float)$tmin0,
+        't_max' => (float)$tmax0,
+        'code' => (int)$wcode0,
       ],
+      'daily' => $days,
     ];
 
     set_transient($cache_key, $out, 2 * HOUR_IN_SECONDS);

@@ -997,6 +997,70 @@ a { color: inherit; text-decoration: none; }
 }
 .cp-strong { font-weight: 700; }
 
+/* Trip header: map + weather */
+.cp-trip-head__right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cp-weather {
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(6px);
+}
+
+.cp-weather__title {
+  font-size: 11px;
+  font-weight: 750;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.cp-weather__row {
+  display: flex;
+  gap: 10px;
+}
+
+.cp-weather__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 46px;
+}
+
+.cp-weather__dow {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.cp-weather__icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.cp-weather__temp {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .cp-weather__row {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .cp-weather__day { min-width: 52px; }
+}
+
 .cp-btn {
   border: 1px solid var(--border);
   background: var(--surface);
