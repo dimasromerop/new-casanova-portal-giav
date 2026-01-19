@@ -346,12 +346,23 @@ class Casanova_Trip_Service {
       $lng = isset($destination['lng']) ? (float)$destination['lng'] : null;
       if ($lat && $lng) {
         $q = $lat . ',' . $lng;
+        $place_id = isset($destination['place_id']) ? trim((string)$destination['place_id']) : '';
+        $label_for_query = isset($destination['label']) ? trim((string)$destination['label']) : $q;
+        $url = 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($q);
+        if ($place_id !== '') {
+          // When we have a Place ID, pass it to improve accuracy and reduce ambiguity.
+          $url = 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($label_for_query) . '&query_place_id=' . rawurlencode($place_id);
+        }
+
         $out = [
           'type' => 'point',
           'query' => $q,
           'hotels' => [],
-          'url' => 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($q),
+          'url' => $url,
         ];
+        if ($place_id !== '') {
+          $out['place_id'] = $place_id;
+        }
         // If there are multiple hotels, also offer an optional route link.
         $titles_for_route = self::extract_hotel_titles_from_structure($structure);
         if (is_array($titles_for_route) && count($titles_for_route) >= 2) {
@@ -469,37 +480,41 @@ class Casanova_Trip_Service {
 
     if ($wp_hotel_id > 0) {
       $pkg = self::find_wp_package_by_hotel_id($wp_hotel_id);
-      if ($pkg && isset($pkg['lat']) && isset($pkg['lng'])) {
-        return [
+      if ($pkg && isset($pkg['label'])) {
+        $dest = [
           'source' => 'package_wp',
           'package_id' => (int)($pkg['package_id'] ?? 0),
           'label' => (string)($pkg['label'] ?? ''),
-          'lat' => (float)$pkg['lat'],
-          'lng' => (float)$pkg['lng'],
+          'lat' => isset($pkg['lat']) ? (float)$pkg['lat'] : null,
+          'lng' => isset($pkg['lng']) ? (float)$pkg['lng'] : null,
+          'place_id' => (string)($pkg['place_id'] ?? ''),
         ];
+        return self::ensure_destination_coords($dest);
       }
     }
 
     // 2) GIAV prestatario (best-effort). We only use it if it looks usable.
     $prestatario_address = self::extract_giav_prestatario_address($primary_hotel);
     if ($prestatario_address) {
-      return [
+      $dest = [
         'source' => 'giav_prestatario',
         'label' => $prestatario_address,
         'lat' => null,
         'lng' => null,
       ];
+      return self::ensure_destination_coords($dest);
     }
 
     // 3) Hotel name fallback.
     $title = trim((string)($primary_hotel['title'] ?? ''));
     if ($title !== '') {
-      return [
+      $dest = [
         'source' => 'hotel_name',
         'label' => $title,
         'lat' => null,
         'lng' => null,
       ];
+      return self::ensure_destination_coords($dest);
     }
 
     return null;
@@ -569,14 +584,16 @@ class Casanova_Trip_Service {
 
     $loc = self::read_package_location_meta($package_id);
     if (!$loc) return null;
-    if (!isset($loc['lat']) || !isset($loc['lng'])) return null;
 
-    return [
+    $out = [
       'package_id' => $package_id,
       'label' => (string)($loc['label'] ?? ''),
-      'lat' => (float)$loc['lat'],
-      'lng' => (float)$loc['lng'],
     ];
+    if (isset($loc['lat']) && isset($loc['lng'])) {
+      $out['lat'] = (float)$loc['lat'];
+      $out['lng'] = (float)$loc['lng'];
+    }
+    return $out;
   }
 
   /**
@@ -778,15 +795,283 @@ class Casanova_Trip_Service {
     return $addr;
   }
 
+
+  /**
+   * Returns the Google API key used for Places + Weather.
+   *
+   * Supported sources:
+   * - define('CASANOVA_GOOGLE_API_KEY', '...')
+   * - option: casanova_google_api_key
+   */
+  private static function get_google_api_key(): string {
+    if (defined('CASANOVA_GOOGLE_API_KEY') && is_string(CASANOVA_GOOGLE_API_KEY) && CASANOVA_GOOGLE_API_KEY !== '') {
+      return (string) CASANOVA_GOOGLE_API_KEY;
+    }
+    $opt = get_option('casanova_google_api_key');
+    if (is_string($opt)) {
+      $opt = trim($opt);
+      if ($opt !== '') return $opt;
+    }
+    return '';
+  }
+
+  /**
+   * Ensure destination has coordinates (and place_id) using Google Places Text Search.
+   * We cache geocode results for up to 365 days (Google recommends refreshing place IDs after ~12 months).
+   *
+   * @param array<string,mixed>|null $dest
+   * @return array<string,mixed>|null
+   */
+  private static function ensure_destination_coords(?array $dest): ?array {
+    if (!is_array($dest)) return null;
+
+    $lat = isset($dest['lat']) ? (float) $dest['lat'] : 0.0;
+    $lng = isset($dest['lng']) ? (float) $dest['lng'] : 0.0;
+    if ($lat && $lng) return $dest;
+
+    $label = trim((string)($dest['label'] ?? ''));
+    if ($label === '') return $dest;
+
+    $resolved = self::google_places_resolve($label);
+    if (!$resolved) return $dest;
+
+    if (isset($resolved['lat']) && isset($resolved['lng'])) {
+      $dest['lat'] = (float) $resolved['lat'];
+      $dest['lng'] = (float) $resolved['lng'];
+    }
+    if (!empty($resolved['place_id'])) {
+      $dest['place_id'] = (string) $resolved['place_id'];
+    }
+    if (!empty($resolved['label'])) {
+      // Prefer Google's formatted address when available (usually more precise than a plain hotel name).
+      $dest['label'] = (string) $resolved['label'];
+    }
+
+    return $dest;
+  }
+
+  /**
+   * Resolve a text label into a stable place_id + coordinates using Places API (Text Search, New).
+   *
+   * @return array{place_id?:string,lat?:float,lng?:float,label?:string}|null
+   */
+  private static function google_places_resolve(string $label): ?array {
+    $label = trim($label);
+    if ($label === '') return null;
+
+    $key = self::get_google_api_key();
+    if ($key === '') return null;
+
+    $cache_key = 'casanova_place_' . md5($label);
+    $cached = get_transient($cache_key);
+    if (is_array($cached) && isset($cached['lat']) && isset($cached['lng'])) {
+      return $cached;
+    }
+
+    $url = 'https://places.googleapis.com/v1/places:searchText';
+    $payload = [
+      'textQuery' => $label,
+      'languageCode' => 'es',
+      'regionCode' => 'ES',
+      'pageSize' => 1,
+    ];
+
+    $resp = wp_remote_post($url, [
+      'timeout' => 5,
+      'redirection' => 2,
+      'headers' => [
+        'Content-Type' => 'application/json; charset=utf-8',
+        'X-Goog-Api-Key' => $key,
+        'X-Goog-FieldMask' => 'places.id,places.location,places.formattedAddress',
+      ],
+      'body' => wp_json_encode($payload),
+    ]);
+
+    if (is_wp_error($resp)) return null;
+    $code = (int) wp_remote_retrieve_response_code($resp);
+    if ($code < 200 || $code >= 300) return null;
+
+    $body = wp_remote_retrieve_body($resp);
+    if (!is_string($body) || trim($body) === '') return null;
+
+    $json = json_decode($body, true);
+    if (!is_array($json)) return null;
+    $places = $json['places'] ?? null;
+    if (!is_array($places) || !isset($places[0]) || !is_array($places[0])) return null;
+
+    $place = $places[0];
+    $loc = $place['location'] ?? null;
+    if (!is_array($loc)) return null;
+
+    $lat = $loc['latitude'] ?? null;
+    $lng = $loc['longitude'] ?? null;
+    if (!is_numeric($lat) || !is_numeric($lng)) return null;
+
+    $out = [
+      'place_id' => is_string($place['id'] ?? null) ? (string)$place['id'] : '',
+      'lat' => (float)$lat,
+      'lng' => (float)$lng,
+      'label' => is_string($place['formattedAddress'] ?? null) ? (string)$place['formattedAddress'] : $label,
+    ];
+
+    set_transient($cache_key, $out, YEAR_IN_SECONDS);
+    return $out;
+  }
+
+  /**
+   * Map Google WeatherCondition.Type to (approx.) Open-Meteo weather codes used by the frontend.
+   */
+  private static function google_weather_condition_to_open_meteo_code(string $type): int {
+    $t = strtoupper(trim($type));
+    if ($t === '' || $t === 'TYPE_UNSPECIFIED') return 0;
+
+    // Clear / clouds
+    if (in_array($t, ['CLEAR'], true)) return 0;
+    if (in_array($t, ['MOSTLY_CLEAR'], true)) return 1;
+    if (in_array($t, ['PARTLY_CLOUDY'], true)) return 2;
+    if (in_array($t, ['MOSTLY_CLOUDY', 'CLOUDY'], true)) return 3;
+
+    // Wind
+    if (in_array($t, ['WINDY'], true)) return 3;
+    if (in_array($t, ['WIND_AND_RAIN'], true)) return 61;
+
+    // Rain / showers
+    if (in_array($t, ['LIGHT_RAIN_SHOWERS', 'CHANCE_OF_SHOWERS', 'SCATTERED_SHOWERS', 'RAIN_SHOWERS'], true)) return 61;
+    if (in_array($t, ['HEAVY_RAIN_SHOWERS'], true)) return 65;
+    if (in_array($t, ['LIGHT_TO_MODERATE_RAIN', 'LIGHT_RAIN'], true)) return 61;
+    if (in_array($t, ['MODERATE_TO_HEAVY_RAIN', 'RAIN', 'RAIN_PERIODICALLY_HEAVY'], true)) return 63;
+    if (in_array($t, ['HEAVY_RAIN'], true)) return 65;
+
+    // Snow
+    if (in_array($t, ['LIGHT_SNOW_SHOWERS', 'CHANCE_OF_SNOW_SHOWERS', 'SCATTERED_SNOW_SHOWERS', 'SNOW_SHOWERS'], true)) return 71;
+    if (in_array($t, ['HEAVY_SNOW_SHOWERS', 'MODERATE_TO_HEAVY_SNOW', 'HEAVY_SNOW', 'SNOWSTORM'], true)) return 75;
+    if (in_array($t, ['LIGHT_TO_MODERATE_SNOW', 'SNOW', 'LIGHT_SNOW'], true)) return 71;
+
+    // Thunderstorm (Google has several, but mapping is "thunder" cluster)
+    if (strpos($t, 'THUNDER') !== false) return 95;
+
+    // Fog / haze / etc.
+    if (strpos($t, 'FOG') !== false) return 45;
+
+    // Default: cloud-ish
+    return 3;
+  }
+
+  /**
+   * Fetch daily forecast via Google Weather API.
+   * Returns the same shape used by the frontend weather component.
+   *
+   * @return array<string,mixed>|null
+   */
+  private static function google_weather_daily(float $lat, float $lng, int $days = 5, string $lang = 'es'): ?array {
+    $key = self::get_google_api_key();
+    if ($key === '') return null;
+
+    $days = max(1, min(10, (int)$days));
+    $lang = $lang ? $lang : 'es';
+
+    $cache_key = 'casanova_gweather_' . md5($lat . ',' . $lng . ',' . $days . ',' . $lang);
+    $cached = get_transient($cache_key);
+    if (is_array($cached)) return $cached;
+
+    $url = add_query_arg([
+      'location.latitude' => $lat,
+      'location.longitude' => $lng,
+      'days' => $days,
+      'pageSize' => $days,
+      'unitsSystem' => 'METRIC',
+      'languageCode' => $lang,
+      'key' => $key,
+    ], 'https://weather.googleapis.com/v1/forecast/days:lookup');
+
+    $resp = wp_remote_get($url, [
+      'timeout' => 5,
+      'redirection' => 2,
+    ]);
+    if (is_wp_error($resp)) return null;
+    $http = (int) wp_remote_retrieve_response_code($resp);
+    if ($http < 200 || $http >= 300) return null;
+
+    $body = wp_remote_retrieve_body($resp);
+    if (!is_string($body) || trim($body) === '') return null;
+
+    $json = json_decode($body, true);
+    if (!is_array($json)) return null;
+
+    $forecast_days = $json['forecastDays'] ?? null;
+    if (!is_array($forecast_days) || !$forecast_days) return null;
+
+    $out_days = [];
+    $count = min($days, count($forecast_days));
+    for ($i = 0; $i < $count; $i++) {
+      $fd = $forecast_days[$i];
+      if (!is_array($fd)) continue;
+
+      $d = $fd['displayDate'] ?? null;
+      if (is_array($d) && isset($d['year'], $d['month'], $d['day'])) {
+        $date = sprintf('%04d-%02d-%02d', (int)$d['year'], (int)$d['month'], (int)$d['day']);
+      } else {
+        $date = null;
+      }
+
+      $min_t = $fd['minTemperature']['degrees'] ?? null;
+      $max_t = $fd['maxTemperature']['degrees'] ?? null;
+      if (!is_numeric($min_t) || !is_numeric($max_t)) continue;
+
+      $cond_type = '';
+      $day_fc = $fd['daytimeForecast'] ?? null;
+      if (is_array($day_fc)) {
+        $wc = $day_fc['weatherCondition'] ?? null;
+        if (is_array($wc) && isset($wc['type']) && is_string($wc['type'])) {
+          $cond_type = (string)$wc['type'];
+        }
+      }
+
+      $out_days[] = [
+        'date' => $date ?: (string)($i + 1),
+        't_min' => (float)$min_t,
+        't_max' => (float)$max_t,
+        'code' => self::google_weather_condition_to_open_meteo_code($cond_type),
+      ];
+    }
+
+    if (!$out_days) return null;
+
+    $out = [
+      'provider' => 'google-weather',
+      'today' => [
+        't_min' => (float) $out_days[0]['t_min'],
+        't_max' => (float) $out_days[0]['t_max'],
+        'code' => (int) $out_days[0]['code'],
+      ],
+      'daily' => $out_days,
+    ];
+
+    // Paid API: cache a bit longer.
+    set_transient($cache_key, $out, 6 * HOUR_IN_SECONDS);
+    return $out;
+  }
+
   /**
    * @return array<string,mixed>|null
    */
   private static function build_weather_from_destination(?array $destination): ?array {
     if (!is_array($destination)) return null;
+
+    // Ensure we have coordinates when possible.
+    $destination = self::ensure_destination_coords($destination);
+
     $lat = isset($destination['lat']) ? (float)$destination['lat'] : null;
     $lng = isset($destination['lng']) ? (float)$destination['lng'] : null;
     if (!$lat || !$lng) return null;
 
+    // Prefer Google Weather if we have an API key.
+    if (self::get_google_api_key() !== '') {
+      $g = self::google_weather_daily($lat, $lng, 5, 'es');
+      if (is_array($g)) return $g;
+    }
+
+    // Fallback: Open-Meteo (free). Kept for resilience.
     $cache_key = 'casanova_weather_' . md5($lat . ',' . $lng);
     $cached = get_transient($cache_key);
     if (is_array($cached)) return $cached;
@@ -851,6 +1136,7 @@ class Casanova_Trip_Service {
     set_transient($cache_key, $out, 2 * HOUR_IN_SECONDS);
     return $out;
   }
+
 
   /**
    * @return array<string,mixed>
