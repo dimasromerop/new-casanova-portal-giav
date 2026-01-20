@@ -8,6 +8,31 @@ if (!defined('ABSPATH')) exit;
  */
 class Casanova_Profile_Controller {
 
+  /**
+   * Devuelve una URL del portal en el idioma WPML indicado.
+   * - Si WPML no está activo, devuelve la base URL tal cual.
+   * - Si WPML está activo, usa su filtro oficial para resolver el permalink.
+   */
+  private static function wpml_portal_url_for_lang(string $lang): string {
+    $base = function_exists('casanova_portal_base_url') ? (string) casanova_portal_base_url() : home_url('/portal-app/');
+    $lang = strtolower(trim($lang));
+    if ($lang === '') return $base;
+
+    // WPML: usar el filtro oficial si está disponible.
+    if (has_filter('wpml_permalink')) {
+      $u = apply_filters('wpml_permalink', $base, $lang);
+      if (is_string($u) && $u !== '') return $u;
+    }
+
+    // Fallback (por si WPML está instalado pero el filtro no está accesible en este contexto)
+    if (defined('ICL_SITEPRESS_VERSION') && function_exists('apply_filters')) {
+      $u = apply_filters('wpml_permalink', $base, $lang);
+      if (is_string($u) && $u !== '') return $u;
+    }
+
+    return $base;
+  }
+
   public static function register_routes(): void {
     register_rest_route('casanova/v1', '/profile', [
       [
@@ -171,14 +196,32 @@ class Casanova_Profile_Controller {
 
     $params = $request->get_json_params();
     if (!is_array($params)) $params = [];
+
+    // "locale" (es_ES) se mantiene por compatibilidad.
     $locale = sanitize_text_field((string)($params['locale'] ?? ''));
-    if ($locale === '') {
+    $lang = sanitize_text_field((string)($params['lang'] ?? ''));
+
+    if ($lang === '' && $locale !== '') {
+      // Derivar lang desde locale: es_ES -> es
+      $lang = strtolower(preg_replace('/[^a-zA-Z]/', '', substr($locale, 0, 2)));
+    }
+
+    if ($locale === '' && $lang === '') {
       return new WP_Error('bad_locale', __('Idioma inválido.', 'casanova-portal'), ['status' => 400]);
     }
 
     // Guardamos preferencia del portal (no toca el locale global del WP).
-    update_user_meta($user_id, 'casanova_portal_locale', $locale);
+    if ($locale !== '') {
+      update_user_meta($user_id, 'casanova_portal_locale', $locale);
+    }
+    if ($lang !== '') {
+      update_user_meta($user_id, 'casanova_portal_lang', $lang);
+    }
 
-    return ['ok' => true, 'locale' => $locale];
+    // Si WPML está activo, devolvemos una URL en el idioma solicitado para redirigir.
+    $wpml_active = ($lang !== '') && (has_filter('wpml_permalink') || defined('ICL_SITEPRESS_VERSION'));
+    $redirect = $wpml_active ? self::wpml_portal_url_for_lang($lang) : '';
+
+    return ['ok' => true, 'locale' => $locale ?: $lang, 'lang' => $lang, 'redirectUrl' => $redirect];
   }
 }

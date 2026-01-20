@@ -63,14 +63,21 @@ function setParam(key, value) {
 
 /* ===== UX Components (microcopy + empty/loading states) ===== */
 
-function Notice({ variant = "info", title, children, action }) {
+function Notice({ variant = "info", title, children, action, className = "", onClose, closeLabel = "Cerrar" }) {
   return (
-    <div className={`cp-notice2 is-${variant}`}>
+    <div className={`cp-notice2 is-${variant} ${className}`.trim()}>
       <div className="cp-notice2__body">
         {title ? <div className="cp-notice2__title">{title}</div> : null}
         <div className="cp-notice2__text">{children}</div>
       </div>
-      {action ? <div className="cp-notice2__action">{action}</div> : null}
+      <div className="cp-notice2__action">
+        {action ? <div className="cp-notice2__action-inner">{action}</div> : null}
+        {typeof onClose === "function" ? (
+          <button type="button" className="cp-notice2__close" onClick={onClose} aria-label={closeLabel} title={closeLabel}>
+            ×
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -2488,6 +2495,7 @@ function App() {
   const [dashErr, setDashErr] = useState(null);
   const [showPaymentBanner, setShowPaymentBanner] = useState(false);
   const bannerTimerRef = useRef(null);
+  const paymentDismissKey = "casanova_payment_banner_dismissed";
 
   const [inbox, setInbox] = useState(null);
   const [inboxErr, setInboxErr] = useState(null);
@@ -2529,13 +2537,20 @@ function App() {
 
   useEffect(() => {
     if (route.payment === "success") {
-      setShowPaymentBanner(true);
-      if (bannerTimerRef.current) {
-        window.clearTimeout(bannerTimerRef.current);
+      // Evitar que se quede "plantificado" si el usuario recarga o navega.
+      const dismissed = window.sessionStorage ? window.sessionStorage.getItem(paymentDismissKey) === "1" : false;
+      if (!dismissed) {
+        setShowPaymentBanner(true);
+
+        // Auto-hide como red de seguridad (si el usuario no lo cierra).
+        if (bannerTimerRef.current) {
+          window.clearTimeout(bannerTimerRef.current);
+        }
+        bannerTimerRef.current = window.setTimeout(() => {
+          setShowPaymentBanner(false);
+        }, 8_000);
       }
-      bannerTimerRef.current = window.setTimeout(() => {
-        setShowPaymentBanner(false);
-      }, 5_000);
+
       setParam("payment", "");
       setParam("pay_status", "");
     }
@@ -2546,6 +2561,15 @@ function App() {
       }
     };
   }, [route.payment]);
+
+  function dismissPaymentBanner() {
+    setShowPaymentBanner(false);
+    try {
+      if (window.sessionStorage) window.sessionStorage.setItem(paymentDismissKey, "1");
+    } catch {
+      // ignore
+    }
+  }
 
   async function loadDashboard(refresh = false) {
     const hadData = !!dashboard;
@@ -2686,8 +2710,19 @@ function App() {
 
   async function setLocale(locale) {
     try {
-      const res = await api('/profile/locale', { method: 'POST', body: { locale } });
+      const lang = String(locale || "").slice(0, 2).toLowerCase();
+      const res = await api('/profile/locale', { method: 'POST', body: { locale, lang } });
       setProfile((p) => (p ? { ...p, locale: res.locale || locale } : p));
+
+      // Si WPML está activo, el backend nos devuelve la URL del portal en el idioma correcto.
+      if (res && typeof res.redirectUrl === "string" && res.redirectUrl.trim() !== "") {
+        const u = new URL(res.redirectUrl, window.location.origin);
+        // Mantener la vista actual (query params) al cambiar de idioma.
+        if (window.location.search) u.search = window.location.search;
+        window.location.href = u.toString();
+        return;
+      }
+
       notify('Idioma actualizado.', 'success');
     } catch (e) {
       notify(e?.message || 'No se pudo actualizar el idioma.', 'warn');
@@ -2743,7 +2778,13 @@ function App() {
         ) : null}
         {showPaymentBanner ? (
           <div className="cp-content">
-            <Notice variant="success" title="Pago registrado">
+            <Notice
+              variant="success"
+              title="Pago registrado"
+              className="casanova-notice casanova-notice--payment"
+              onClose={dismissPaymentBanner}
+              closeLabel="Cerrar"
+            >
               Gracias, procesamos el cobro y actualizamos tus datos.
             </Notice>
           </div>
