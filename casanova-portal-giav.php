@@ -198,9 +198,10 @@ require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/api/v1/inbox-controller.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-messages.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-bonos.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-router.php';
+  require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-voucher.php';
+  require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-itinerary.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-actions.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-reservas-map.php';
-  require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-voucher.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-profile.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/portal-loyalty.php';
   

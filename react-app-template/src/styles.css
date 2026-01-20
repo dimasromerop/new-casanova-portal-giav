@@ -999,7 +999,19 @@ a { color: inherit; text-decoration: none; }
 .cp-strong { font-weight: 700; }
 
 /* Trip header: map + weather */
-.cp-trip-head__right {
+.cp-trip-head__meta-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.cp-trip-head__meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cp-trip-head__actions {
   display: flex;
   gap: 10px;
   align-items: center;

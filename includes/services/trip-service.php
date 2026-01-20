@@ -145,6 +145,13 @@ class Casanova_Trip_Service {
       $bonuses = self::build_bonos($idCliente, $expediente_id);
       $messages_meta = self::build_messages_meta($user_id, $expediente_id);
 
+      $portal_base = function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/');
+      $itinerary_pdf_url = add_query_arg([
+        'casanova_action' => 'itinerary_pdf',
+        'expediente' => $expediente_id,
+        '_wpnonce' => wp_create_nonce('casanova_itinerary_' . $expediente_id),
+      ], $portal_base);
+
       return [
         'status' => 'ok',
         'giav'   => ['ok' => true, 'source' => 'live', 'error' => null],
@@ -161,6 +168,7 @@ class Casanova_Trip_Service {
         'vouchers' => $bonuses['items'] ?? [],
         'bonuses' => $bonuses,
         'messages_meta' => $messages_meta,
+        'itinerary_pdf_url' => $itinerary_pdf_url,
         // Only included for admins when explicitly requested.
       ];
 
@@ -180,6 +188,7 @@ class Casanova_Trip_Service {
         'invoices' => [],
         'vouchers' => [],
         'messages_meta' => ['unread_count' => 0, 'last_message_at' => null],
+        'itinerary_pdf_url' => '',
       ];
     }
   }
@@ -202,6 +211,7 @@ class Casanova_Trip_Service {
       'invoices' => [],
       'vouchers' => [],
       'messages_meta' => ['unread_count' => 0, 'last_message_at' => null],
+      'itinerary_pdf_url' => '',
     ];
   }
 
@@ -2000,7 +2010,8 @@ class Casanova_Trip_Service {
         'payments' => null,
         'invoices' => [],
         'vouchers' => [],
-      'messages_meta' => ['unread_count' => 0, 'last_message_at' => null],
+        'messages_meta' => ['unread_count' => 0, 'last_message_at' => null],
+        'itinerary_pdf_url' => '',
       ];
     }
 
@@ -2012,6 +2023,7 @@ class Casanova_Trip_Service {
     if (!isset($data['invoices']) || !is_array($data['invoices'])) $data['invoices'] = [];
     if (!isset($data['vouchers']) || !is_array($data['vouchers'])) $data['vouchers'] = [];
     if (!isset($data['messages_meta']) || !is_array($data['messages_meta'])) $data['messages_meta'] = ['unread_count' => 0, 'last_message_at' => null];
+    if (!isset($data['itinerary_pdf_url'])) $data['itinerary_pdf_url'] = '';
 
     return $data;
   }

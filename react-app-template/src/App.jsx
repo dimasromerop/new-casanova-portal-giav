@@ -1136,7 +1136,7 @@ function TripWeather({ weather }) {
   );
 }
 
-function TripHeader({ trip, payments, map, weather }) {
+function TripHeader({ trip, payments, map, weather, itineraryUrl }) {
   const r = normalizeTripDates(trip);
   return (
     <div className="cp-card" style={{ marginTop: 14 }}>
@@ -1149,36 +1149,47 @@ function TripHeader({ trip, payments, map, weather }) {
             {trip?.code || `Expediente #${trip?.id || "—"}`} · {trip?.status || "—"}
           </div>
         </div>
-        <div className="cp-trip-head__right">
-          <div className="cp-meta">
+        <div className="cp-trip-head__meta-actions">
+          <div className="cp-trip-head__meta">
             <span className="cp-strong">Fechas:</span> {formatDateES(r.start)} – {formatDateES(r.end)}
           </div>
-          {map?.url ? (
-            <a
+          <div className="cp-trip-head__actions">
+            {map?.url ? (
+              <a
+                className="cp-btn"
+                href={String(map.url)}
+                target="_blank"
+                rel="noreferrer"
+                title={map?.type === "route" ? "Ver ruta en Google Maps" : "Ver mapa en Google Maps"}
+              >
+                {map?.type === "route" ? "Ver ruta" : "Ver mapa"}
+              </a>
+            ) : null}
+            <button
               className="cp-btn"
-              href={String(map.url)}
-              target="_blank"
-              rel="noreferrer"
-              title={map?.type === "route" ? "Ver ruta en Google Maps" : "Ver mapa en Google Maps"}
+              onClick={() => {
+                setParam("tab", "payments");
+              }}
             >
-              {map?.type === "route" ? "Ver ruta" : "Ver mapa"}
-            </a>
-          ) : null}
-          <button
-            className="cp-btn"
-            onClick={() => {
-              setParam("tab", "payments");
-            }}
-          >
-            Ver pagos
-          </button>
-          <TripWeather weather={weather} />
+              Ver pagos
+            </button>
+            {itineraryUrl ? (
+              <a
+                className="cp-btn cp-btn--ghost"
+                href={itineraryUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Programa del viaje (PDF)
+              </a>
+            ) : null}
+            <TripWeather weather={weather} />
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
 function PaymentActions({ expediente, payments, mock }) {
   const [state, setState] = useState({ loading: null, error: null });
   const totalAmount = typeof payments?.total === "number" ? payments.total : Number.NaN;
@@ -1776,8 +1787,20 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const title = trip?.title || `Expediente #${expediente}`;
   const tab = readParams().tab;
 
+  const resolvedTrip = useMemo(() => {
+    if (!detail?.trip) return fallbackTrip;
+    const detailTrip = detail.trip;
+    const fallbackStatus = fallbackTrip.status;
+    const status = detailTrip.status && String(detailTrip.status).trim() !== '' ? detailTrip.status : fallbackStatus;
+    return {
+      ...fallbackTrip,
+      ...detailTrip,
+      status,
+    };
+  }, [detail?.trip, fallbackTrip]);
+
   return (
-    <div className="cp-content" style={{ maxWidth: 1200, width: "100%", margin: "0 auto" }}>
+      <div className="cp-content" style={{ maxWidth: 1200, width: "100%", margin: "0 auto" }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <button className="cp-btn" onClick={() => setParam("view", "trips")}>
           ← Viajes
@@ -1787,7 +1810,13 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
         </div>
       </div>
 
-      <TripHeader trip={trip} payments={payments} map={detail?.map} weather={detail?.weather} />
+      <TripHeader
+        trip={detail?.trip ? resolvedTrip : trip}
+        payments={payments}
+        map={detail?.map}
+        weather={detail?.weather}
+        itineraryUrl={detail?.itinerary_pdf_url}
+      />
 
       <Tabs
         tab={tab}

@@ -45,7 +45,15 @@ function casanova_portal_voucher_url(int $idExpediente, int $idReserva, string $
  */
 add_action('init', function () {
   $act = isset($_REQUEST['casanova_action']) ? (string)$_REQUEST['casanova_action'] : '';
-  if ($act !== 'voucher' && $act !== 'voucher_pdf' && $act !== 'invoice_pdf') return;
+  $allowed = ['voucher', 'voucher_pdf', 'invoice_pdf', 'itinerary_pdf'];
+  if (!in_array($act, $allowed, true)) return;
+
+  if ($act === 'itinerary_pdf') {
+    if (function_exists('casanova_handle_itinerary_pdf')) {
+      casanova_handle_itinerary_pdf();
+    }
+    return;
+  }
 
   // Normalizamos para reutilizar handlers existentes.
   $_REQUEST['action'] = ($act === 'voucher_pdf') ? 'casanova_voucher_pdf' : (($act === 'invoice_pdf') ? 'casanova_invoice_pdf' : 'casanova_voucher');
@@ -293,6 +301,73 @@ function casanova_handle_voucher_pdf(): void {
 
 add_action('admin_post_casanova_voucher_pdf', 'casanova_handle_voucher_pdf');
 add_action('admin_post_nopriv_casanova_voucher_pdf', 'casanova_handle_voucher_pdf');
+
+/**
+ * AcciИn: generar PDF del programa de viaje.
+ */
+function casanova_handle_itinerary_pdf(): void {
+  if (!is_user_logged_in()) wp_die(esc_html__('No autorizado', 'casanova-portal'), 403);
+
+  $user_id = (int) get_current_user_id();
+  $idCliente = (int) get_user_meta((int)$user_id, 'casanova_idcliente', true);
+  $idExpediente = (int) ($_REQUEST['expediente'] ?? 0);
+
+  if (!$idCliente || $idExpediente <= 0) {
+    wp_die('Parámetros inválidos', 400);
+  }
+
+  $nonce = (string) ($_REQUEST['_wpnonce'] ?? '');
+  if (!wp_verify_nonce($nonce, 'casanova_itinerary_' . $idExpediente)) {
+    wp_die('Nonce inválido', 403);
+  }
+
+  if (!function_exists('casanova_user_can_access_expediente') || !casanova_user_can_access_expediente($user_id, $idExpediente)) {
+    wp_die(esc_html__('No autorizado', 'casanova-portal'), 403);
+  }
+
+  $rest_request = new WP_REST_Request('GET');
+  $rest_request->set_param('id', $idExpediente);
+  if (isset($_REQUEST['mock'])) {
+    $rest_request->set_param('mock', (int) $_REQUEST['mock']);
+  }
+
+  $trip_data = Casanova_Trip_Service::get_trip_for_user($user_id, $idExpediente, $rest_request);
+  if (is_wp_error($trip_data)) {
+    wp_die(esc_html__('No se pudo cargar el viaje para generar el programa.', 'casanova-portal'), 500);
+  }
+
+  $html = function_exists('casanova_render_itinerary_html') ? casanova_render_itinerary_html($trip_data) : '';
+  if ($html === '') {
+    wp_die(esc_html__('No se pudo generar el programa del viaje.', 'casanova-portal'), 500);
+  }
+
+  $dompdf_autoload = plugin_dir_path(__FILE__) . '../vendor/dompdf/autoload.inc.php';
+  if (!file_exists($dompdf_autoload)) {
+    wp_die('Falta Dompdf (vendor/dompdf/autoload.inc.php)', 500);
+  }
+  require_once $dompdf_autoload;
+
+  $options = new \Dompdf\Options();
+  $options->set('isRemoteEnabled', true);
+  $options->set('defaultFont', 'DejaVu Sans');
+  $dompdf = new \Dompdf\Dompdf($options);
+
+  $dompdf->loadHtml($html, 'UTF-8');
+  $dompdf->setPaper('A4', 'portrait');
+  $dompdf->render();
+
+  $title = trim((string) ($trip_data['trip']['title'] ?? ''));
+  $filename = 'Programa_' . sanitize_file_name($title !== '' ? $title : 'expediente-' . $idExpediente) . '.pdf';
+  if ($filename === '') {
+    $filename = 'Programa.pdf';
+  }
+
+  $dompdf->stream($filename, ['Attachment' => true]);
+  exit;
+}
+
+add_action('admin_post_casanova_itinerary_pdf', 'casanova_handle_itinerary_pdf');
+add_action('admin_post_nopriv_casanova_itinerary_pdf', 'casanova_handle_itinerary_pdf');
 
 
 
