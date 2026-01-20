@@ -144,51 +144,30 @@ class Casanova_Dashboard_Service {
       if (!is_object($e)) continue;
 
       $ini = $e->FechaDesde ?? $e->Desde ?? $e->FechaInicio ?? $e->FechaInicioViaje ?? null;
-      if (!$ini) continue;
 
-      $ts = strtotime((string) $ini);
-      if (!$ts) continue;
-
-      $d = (new DateTimeImmutable('@' . $ts))->setTimezone(wp_timezone());
-      if ($d < $today) continue;
-
-      $items[] = [
-        'obj'  => $e,
-        'date' => $d,
-      ];
-    }
-
-    if (empty($items)) return [];
-
-    usort($items, function($a, $b) {
-      $da = $a['date'] ?? null;
-      $db = $b['date'] ?? null;
-      if (!$da || !$db) return 0;
-      return $da <=> $db;
-    });
-
-    $out = [];
-    foreach ($items as $row) {
-      if (empty($row['obj']) || !is_object($row['obj'])) continue;
-      $e = $row['obj'];
-
-    $ini = $e->FechaDesde ?? $e->Desde ?? $e->FechaInicio ?? $e->FechaInicioViaje ?? null;
+    $fin = $e->FechaHasta ?? $e->Hasta ?? $e->FechaFin ?? $e->FechaFinViaje ?? null;
 
     $idExp = (int) ($e->IdExpediente ?? $e->IDExpediente ?? $e->Id ?? 0);
     if (!$idExp && isset($e->Codigo)) $idExp = (int) $e->Codigo;
 
     $title  = (string) ($e->Titulo ?? $e->Nombre ?? 'Expediente');
     $code   = (string) ($e->Codigo ?? '');
-    $status = (string) ($e->Estado ?? $e->Situacion ?? '');
 
-    // Fallback: si GIAV no trae Estado/Situación, inferimos por fechas (sin lógica en React)
+    // Estado (preferimos el estado configurable por el usuario en GIAV si existe)
+    $stage_id = isset($e->IdEntityStage) ? (int) $e->IdEntityStage : 0;
+    $stage_name = ($stage_id > 0 && function_exists('casanova_giav_entity_stage_name'))
+      ? casanova_giav_entity_stage_name('Expediente', $stage_id)
+      : null;
+
+    $status = (string) ($stage_name ?: ($e->Estado ?? $e->Situacion ?? ''));
+
+    // Fallback: si GIAV no trae estado, inferimos por fechas (sin lógica en React)
     if ($status === '' && ($ini || $fin)) {
       $today_iso = date('Y-m-d');
       $fin_iso = $fin && function_exists('casanova_date_to_iso') ? (string) casanova_date_to_iso($fin) : '';
       $status = ($fin_iso && $fin_iso < $today_iso) ? 'Cerrado' : 'Abierto';
     }
 
-    $fin = $e->FechaHasta ?? $e->Hasta ?? $e->FechaFin ?? $e->FechaFinViaje ?? null;
     $date_range = function_exists('casanova_fmt_date_range')
       ? (string) casanova_fmt_date_range($ini ?? null, $fin)
       : '';
@@ -240,6 +219,10 @@ class Casanova_Dashboard_Service {
         'title'      => $title,
         'code'       => $code,
         'status'     => $status,
+        'stage'      => [
+          'id'   => $stage_id > 0 ? $stage_id : null,
+          'name' => $stage_name,
+        ],
         'date_start' => $ini ? gmdate('Y-m-d', strtotime((string)$ini)) : null,
         'date_end'   => $fin ? gmdate('Y-m-d', strtotime((string)$fin)) : null,
         'date_range' => $date_range,

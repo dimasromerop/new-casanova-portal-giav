@@ -111,6 +111,16 @@ class Casanova_Expedientes_Controller {
       $status = (string) ($exp->Situacion ?? '');
     }
 
+    // Estado configurable GIAV (EntityStages)
+    $stage_id = isset($exp->IdEntityStage) ? (int) $exp->IdEntityStage : 0;
+    $stage_name = ($stage_id > 0 && function_exists('casanova_giav_entity_stage_name'))
+      ? casanova_giav_entity_stage_name('Expediente', $stage_id)
+      : null;
+
+    if ($stage_name && $status === '') {
+      $status = (string) $stage_name;
+    }
+
     $start_raw = $exp->FechaInicio ?? $exp->FechaDesde ?? $exp->Desde ?? null;
     $end_raw   = $exp->FechaFin ?? $exp->FechaHasta ?? $exp->Hasta ?? null;
     $date_start = $start_raw ? gmdate('Y-m-d', strtotime((string) $start_raw)) : null;
@@ -128,6 +138,10 @@ class Casanova_Expedientes_Controller {
       'code' => $code,
       'title' => $title,
       'status' => $status,
+      'stage' => [
+        'id' => $stage_id > 0 ? $stage_id : null,
+        'name' => $stage_name,
+      ],
       'date_start' => $date_start,
       'date_end' => $date_end,
       'date_range' => $date_range,

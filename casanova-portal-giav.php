@@ -148,6 +148,7 @@ add_action('plugins_loaded', function () {
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-core.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-client-search.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-expedientes.php';
+  require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-entity-stages.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-reservas.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-oficina.php';
   require_once CASANOVA_GIAV_PLUGIN_PATH . 'includes/giav-proveedores.php';
