@@ -79,11 +79,13 @@ class Casanova_Dashboard_Service {
     }
 
 
-    // 2) Viajes futuros (GIAV: expedientes)
-    $trips = self::get_future_trips($idCliente);
-
-    // 3) Próximo viaje (derivado)
-    $next = !empty($trips) ? $trips[0] : null;
+    // 2) Viajes (GIAV: expedientes)
+    // - Si hay futuros/en curso: mostramos el próximo.
+    // - Si NO hay futuros: mostramos el último viaje con una CTA suave (opinión).
+    $trips_pack = self::get_trips_for_dashboard($idCliente);
+    $trips = (array) ($trips_pack['trips'] ?? []);
+    $next  = !empty($trips) ? $trips[0] : (isset($trips_pack['last_trip']) ? $trips_pack['last_trip'] : null);
+    $post_trip = !empty($trips_pack['post_trip']) ? (array) $trips_pack['post_trip'] : null;
 
     // 4) Pagos (sobre próximo viaje)
     $payments = self::get_payments_summary($idCliente, $next);
@@ -111,6 +113,7 @@ class Casanova_Dashboard_Service {
       ],
       'trips'    => $trips,
       'next_trip' => $next,
+      'post_trip' => $post_trip,
       'payments' => $payments,
       'messages' => $messages,
       'next_action' => $next_action,
@@ -124,78 +127,95 @@ class Casanova_Dashboard_Service {
   }
 
   /**
-   * @return array<int,array<string,mixed>>
+   * Devuelve viajes futuros/en curso para el dashboard y, si no existe ninguno,
+   * el último viaje pasado (para mostrar una CTA suave como “dejar una opinión”).
+   *
+   * @return array{trips: array<int,array<string,mixed>>, last_trip: ?array<string,mixed>, post_trip: ?array<string,mixed>}
    */
-  private static function get_future_trips(int $idCliente): array {
+  private static function get_trips_for_dashboard(int $idCliente): array {
 
     if (!$idCliente || !function_exists('casanova_giav_expedientes_por_cliente')) {
-      return [];
+      return ['trips' => [], 'last_trip' => null, 'post_trip' => null];
     }
 
-    $today = new DateTimeImmutable('today', wp_timezone());
-    $items = [];
+    $tz = wp_timezone();
+    $today = new DateTimeImmutable('today', $tz);
+    $base = function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/');
 
     $exps = casanova_giav_expedientes_por_cliente($idCliente);
     if (!is_array($exps)) {
-      return [];
+      return ['trips' => [], 'last_trip' => null, 'post_trip' => null];
     }
+
+    $upcoming = [];
+    $past = [];
 
     foreach ($exps as $e) {
       if (!is_object($e)) continue;
 
-      $ini = $e->FechaDesde ?? $e->Desde ?? $e->FechaInicio ?? $e->FechaInicioViaje ?? null;
+      $idExp = (int) ($e->IdExpediente ?? $e->IDExpediente ?? $e->Id ?? 0);
+      if (!$idExp && isset($e->Codigo)) $idExp = (int) $e->Codigo;
+      if ($idExp <= 0) continue;
 
-    $fin = $e->FechaHasta ?? $e->Hasta ?? $e->FechaFin ?? $e->FechaFinViaje ?? null;
+      $title  = (string) ($e->Titulo ?? $e->Nombre ?? 'Viaje');
+      $code   = (string) ($e->Codigo ?? '');
 
-    $idExp = (int) ($e->IdExpediente ?? $e->IDExpediente ?? $e->Id ?? 0);
-    if (!$idExp && isset($e->Codigo)) $idExp = (int) $e->Codigo;
+      $ini_raw = $e->FechaDesde ?? $e->Desde ?? $e->FechaInicio ?? $e->FechaInicioViaje ?? null;
+      $fin_raw = $e->FechaHasta ?? $e->Hasta ?? $e->FechaFin ?? $e->FechaFinViaje ?? null;
 
-    $title  = (string) ($e->Titulo ?? $e->Nombre ?? 'Expediente');
-    $code   = (string) ($e->Codigo ?? '');
+      $ini_dt = self::dt_from_giav($ini_raw, $tz);
+      $fin_dt = self::dt_from_giav($fin_raw, $tz);
 
-    // Estado (preferimos el estado configurable por el usuario en GIAV si existe)
-    $stage_id = isset($e->IdEntityStage) ? (int) $e->IdEntityStage : 0;
-    $stage_name = ($stage_id > 0 && function_exists('casanova_giav_entity_stage_name'))
-      ? casanova_giav_entity_stage_name('Expediente', $stage_id)
-      : null;
+      $ini_iso = $ini_dt ? $ini_dt->format('Y-m-d') : null;
+      $fin_iso = $fin_dt ? $fin_dt->format('Y-m-d') : null;
 
-    $status = (string) ($stage_name ?: ($e->Estado ?? $e->Situacion ?? ''));
+      // Estado configurable (EntityStages) si existe
+      $stage_id = isset($e->IdEntityStage) ? (int) $e->IdEntityStage : 0;
+      $stage_name = ($stage_id > 0 && function_exists('casanova_giav_entity_stage_name'))
+        ? casanova_giav_entity_stage_name('Expediente', $stage_id)
+        : null;
+      $status_raw = (string) ($stage_name ?: ($e->Estado ?? $e->Situacion ?? ''));
 
-    // Fallback: si GIAV no trae estado, inferimos por fechas (sin lógica en React)
-    if ($status === '' && ($ini || $fin)) {
-      $today_iso = date('Y-m-d');
-      $fin_iso = $fin && function_exists('casanova_date_to_iso') ? (string) casanova_date_to_iso($fin) : '';
-      $status = ($fin_iso && $fin_iso < $today_iso) ? 'Cerrado' : 'Abierto';
-    }
-
-    $date_range = function_exists('casanova_fmt_date_range')
-      ? (string) casanova_fmt_date_range($ini ?? null, $fin)
-      : '';
-
-    $base = function_exists('casanova_portal_base_url') ? casanova_portal_base_url() : home_url('/');
-    $url = $idExp ? add_query_arg(['view' => 'expedientes', 'expediente' => $idExp], $base) : '';
-
-    $days_left = 0;
-    if (isset($row['date']) && $row['date'] instanceof DateTimeImmutable) {
-      $days_left = (int) $today->diff($row['date'])->format('%a');
-    }
-
-    $ics_url = '';
-    if ($idExp > 0) {
-      if (function_exists('casanova_portal_ics_url')) {
-        $ics_url = casanova_portal_ics_url($idExp);
-      } else {
-        $ics_url = add_query_arg([
-          'casanova_action' => 'download_ics',
-          'expediente'      => (int) $idExp,
-          '_wpnonce'        => wp_create_nonce('casanova_download_ics_' . (int)$idExp),
-        ], $base);
+      // Clasificación temporal (sin depender del “estado” textual)
+      $is_past = false;
+      $is_active = false;
+      if ($fin_dt) {
+        $is_past = $fin_dt < $today;
+        $is_active = ($ini_dt ? ($ini_dt <= $today && $fin_dt >= $today) : ($fin_dt >= $today));
+      } elseif ($ini_dt) {
+        $is_past = $ini_dt < $today;
+        $is_active = ($ini_dt <= $today);
       }
-    }
 
-    $payments = [];
-    $bonuses = [];
-    if ($idExp > 0) {
+      // Fallback: si GIAV no trae estado, inferimos por fechas
+      $status = $status_raw;
+      if ($status === '' && ($ini_dt || $fin_dt)) {
+        $status = $is_past ? 'Finalizado' : 'En curso';
+      }
+
+      $date_range = function_exists('casanova_fmt_date_range')
+        ? (string) casanova_fmt_date_range($ini_raw ?? null, $fin_raw)
+        : '';
+
+      $url = add_query_arg(['view' => 'expedientes', 'expediente' => $idExp], $base);
+
+      $days_left = null;
+      if ($ini_dt) {
+        // Si ya empezó, 0.
+        $days_left = (int) max(0, $today->diff($ini_dt)->format('%r%a'));
+        if ($days_left < 0) $days_left = 0;
+      }
+
+      $ics_url = function_exists('casanova_portal_ics_url')
+        ? (string) casanova_portal_ics_url($idExp)
+        : add_query_arg([
+            'casanova_action' => 'download_ics',
+            'expediente'      => (int) $idExp,
+            '_wpnonce'        => wp_create_nonce('casanova_download_ics_' . (int)$idExp),
+          ], $base);
+
+      $payments = [];
+      $bonuses = [];
       $calc = self::get_payments_for_expediente($idCliente, $idExp);
       if (!empty($calc)) {
         $total = (float) ($calc['total'] ?? 0);
@@ -212,9 +232,8 @@ class Casanova_Dashboard_Service {
           'available' => $is_paid,
         ];
       }
-    }
 
-      $out[] = [
+      $trip = [
         'id'         => $idExp,
         'title'      => $title,
         'code'       => $code,
@@ -223,23 +242,81 @@ class Casanova_Dashboard_Service {
           'id'   => $stage_id > 0 ? $stage_id : null,
           'name' => $stage_name,
         ],
-        'date_start' => $ini ? gmdate('Y-m-d', strtotime((string)$ini)) : null,
-        'date_end'   => $fin ? gmdate('Y-m-d', strtotime((string)$fin)) : null,
+        'date_start' => $ini_iso,
+        'date_end'   => $fin_iso,
         'date_range' => $date_range,
         'url'        => $url,
         'days_left'  => $days_left,
         'calendar_url' => $ics_url,
         'payments'   => $payments,
         'bonuses'    => $bonuses,
-        '_raw'       => [
-          'FechaInicio' => isset($e->FechaInicio) ? (string) $e->FechaInicio : null,
-          'FechaFin'    => $fin ? (string) $fin : null,
+        '_flags'     => [
+          'is_past' => $is_past,
+          'is_active' => $is_active,
         ],
       ];
-      if (count($out) >= 10) break;
+
+      if ($is_past) $past[] = $trip;
+      else $upcoming[] = $trip;
     }
 
-    return $out;
+    // Orden: próximos por fecha de inicio asc (nulos al final)
+    usort($upcoming, function($a, $b) {
+      $ad = $a['date_start'] ?? null;
+      $bd = $b['date_start'] ?? null;
+      if ($ad === $bd) return 0;
+      if ($ad === null) return 1;
+      if ($bd === null) return -1;
+      return strcmp((string)$ad, (string)$bd);
+    });
+    $upcoming = array_slice($upcoming, 0, 10);
+
+    // Último viaje pasado: por fecha fin desc (si no, inicio desc)
+    usort($past, function($a, $b) {
+      $ad = $a['date_end'] ?? ($a['date_start'] ?? null);
+      $bd = $b['date_end'] ?? ($b['date_start'] ?? null);
+      if ($ad === $bd) return 0;
+      if ($ad === null) return 1;
+      if ($bd === null) return -1;
+      return strcmp((string)$bd, (string)$ad);
+    });
+    $last = !empty($past) ? $past[0] : null;
+
+    $post_trip = null;
+    if (empty($upcoming) && $last) {
+      $post_trip = [
+        'is_post_trip' => true,
+        'review_url' => 'https://g.page/r/CdwjiFg2KDsTEAE/review',
+      ];
+    }
+
+    return [
+      'trips' => $upcoming,
+      'last_trip' => $last,
+      'post_trip' => $post_trip,
+    ];
+  }
+
+  /**
+   * Normaliza fechas GIAV a DateTimeImmutable en la TZ de WordPress.
+   */
+  private static function dt_from_giav($value, DateTimeZone $tz): ?DateTimeImmutable {
+    if (!$value) return null;
+    // Si existe helper de vuestro stack, lo usamos.
+    if (function_exists('casanova_date_to_iso')) {
+      $iso = casanova_date_to_iso($value);
+      if ($iso) {
+        try { return new DateTimeImmutable((string)$iso, $tz); } catch (Throwable $e) {}
+      }
+    }
+    // Fallback genérico
+    $ts = strtotime((string)$value);
+    if (!$ts) return null;
+    try {
+      return (new DateTimeImmutable('@' . $ts))->setTimezone($tz);
+    } catch (Throwable $e) {
+      return null;
+    }
   }
 
   /**

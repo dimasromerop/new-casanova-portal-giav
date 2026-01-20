@@ -2176,13 +2176,21 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
   const nextTier = mull?.next_tier_label ? String(mull.next_tier_label) : null;
   const hintText = (remaining !== null && nextTier) ? ("Te faltan " + euro(remaining) + " para subir a " + nextTier + ".") : null;
 
-  const tripLabel = nextTrip?.title ? String(nextTrip.title) : "Viaje";
+  const postTrip = Boolean(data?.post_trip?.is_post_trip);
+  const reviewUrl = data?.post_trip?.review_url ? String(data.post_trip.review_url) : "";
+
+  const tripLabel = nextTrip?.title ? String(nextTrip.title) : (postTrip ? "Tu viaje" : "Viaje");
   const tripCode = nextTrip?.code ? String(nextTrip.code) : "";
   const tripContext = tripCode ? `${tripLabel} (${tripCode})` : tripLabel;
   const tripMeta = [tripCode, nextTrip?.date_range].filter(Boolean).join(" · ");
   const daysLeftRaw = Number(nextTrip?.days_left);
   const daysLeft = Number.isFinite(daysLeftRaw) ? Math.max(0, Math.round(daysLeftRaw)) : null;
-  const daysLeftLabel = daysLeft !== null ? `En ${daysLeft} días` : null;
+  let daysLeftLabel = null;
+  if (postTrip) {
+    daysLeftLabel = "Viaje finalizado";
+  } else if (daysLeft !== null) {
+    daysLeftLabel = daysLeft === 0 ? "Empieza hoy" : `Empieza en ${daysLeft} días`;
+  }
   const calendarUrl = nextTrip?.calendar_url ? String(nextTrip.calendar_url) : "";
 
   const isPaid = pendingAmount !== null ? pendingAmount <= 0.01 : false;
@@ -2193,7 +2201,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
     : !hasPaymentsData
       ? "Cuando haya información de pagos, la verás reflejada aquí."
       : isPaid
-        ? "Tu próximo viaje está al día. No tienes acciones pendientes ahora mismo."
+        ? "Todo listo. No tienes nada pendiente ahora mismo."
         : `Tienes un pago pendiente de ${euro(pendingAmount)}.`);
   const actionTripLabel = action?.trip_label || (nextTrip ? tripContext : "");
   const actionNote = action?.note || null;
@@ -2250,10 +2258,12 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
           <div className="cp-hero__bg" aria-hidden="true" />
           <div className="cp-hero__content">
             <div className="cp-hero__top">
-              <div className="cp-hero__eyebrow">Próximo viaje</div>
+              <div className="cp-hero__eyebrow">{postTrip ? "Tu último viaje" : "Tu próximo viaje"}</div>
               <div className="cp-hero__badges">
                 {daysLeftLabel ? <span className="cp-pill cp-hero-pill">{daysLeftLabel}</span> : null}
-                {nextTrip?.status ? <span className="cp-pill cp-hero-pill">{nextTrip.status}</span> : null}
+                {(postTrip || nextTrip?.status) ? (
+                  <span className="cp-pill cp-hero-pill">{postTrip ? "Finalizado" : nextTrip.status}</span>
+                ) : null}
               </div>
             </div>
 
@@ -2263,7 +2273,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
                   <div className="cp-hero__heading">
                     <div className="cp-hero__title">{tripLabel}</div>
                     <div className="cp-hero__meta">
-                      {tripMeta || "Fechas por definir"}
+                      {tripMeta || "Fechas por confirmar"}
                       {heroMap?.url ? (
                         <a
                           className="cp-hero__meta-link"
@@ -2289,7 +2299,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
 
                 <div className="cp-hero__kpis">
                   <div className="cp-hero-kpi">
-                    <div className="cp-hero-kpi__label">Total viaje</div>
+                    <div className="cp-hero-kpi__label">Total del viaje</div>
                     <div className="cp-hero-kpi__value">{hasPaymentsData ? totalLabel : "—"}</div>
                   </div>
                   <div className="cp-hero-kpi">
@@ -2305,14 +2315,20 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
                 <div className="cp-hero__actions">
                   <div className="cp-hero__actions-left">
                     <button className="cp-btn primary" onClick={viewTrip}>
-                      Ver viaje
+                      Ver detalles
                     </button>
                     <button className="cp-btn cp-btn--ghost" onClick={viewPayments} disabled={!hasPaymentsData}>
                       Pagos
                     </button>
                     {calendarUrl ? (
                       <a className="cp-btn cp-btn--ghost" href={calendarUrl}>
-                        Calendario
+                        Añadir al calendario
+                      </a>
+                    ) : null}
+
+                    {postTrip && reviewUrl ? (
+                      <a className="cp-btn cp-btn--ghost" href={reviewUrl} target="_blank" rel="noreferrer">
+                        Dejar opinión
                       </a>
                     ) : null}
                   </div>
