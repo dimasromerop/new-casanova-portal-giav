@@ -7,6 +7,22 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+/* ===== i18n (WPML via PHP localized dict) =====
+   WPML does not translate bundled JS automatically.
+   We inject translated strings from PHP into window.CASANOVA_I18N.
+*/
+const __I18N__ = (typeof window !== "undefined" && window.CASANOVA_I18N) ? window.CASANOVA_I18N : {};
+
+function t(key, fallback = "") {
+  const v = __I18N__?.[key];
+  return (typeof v === "string" && v.length) ? v : fallback;
+}
+
+function tf(key, fallback = "", vars = {}) {
+  const s = t(key, fallback);
+  return s.replace(/\{(\w+)\}/g, (_, name) => (vars[name] ?? ""));
+}
+
 /* ===== Helpers ===== */
 function api(path, options = {}) {
   const base = window.CasanovaPortal?.restUrl;
@@ -61,24 +77,9 @@ function setParam(key, value) {
   window.dispatchEvent(new Event("popstate"));
 }
 
-
-// i18n (WPML via PHP -> wp_localize_script)
-const t = (key, fallback = "") => {
-  const dict = window.CASANOVA_I18N || {};
-  const v = dict[key];
-  return (typeof v === "string" && v.length) ? v : fallback;
-};
-const tf = (key, fallback = "", vars = {}) => {
-  let s = t(key, fallback);
-  Object.keys(vars || {}).forEach((k) => {
-    s = s.split("{" + k + "}").join(String(vars[k]));
-  });
-  return s;
-};
-
 /* ===== UX Components (microcopy + empty/loading states) ===== */
 
-function Notice({ variant = "info", title, children, action, className = "", onClose, closeLabel = t("close", "Cerrar") }) {
+function Notice({ variant = "info", title, children, action, className = "", onClose, closeLabel = t('close', 'Cerrar') }) {
   return (
     <div className={`cp-notice2 is-${variant} ${className}`.trim()}>
       <div className="cp-notice2__body">
@@ -545,7 +546,7 @@ function Sidebar({ view, unread = 0 }) {
         />
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
           <div className="cp-brand-title">Casanova Portal</div>
-          <div className="cp-brand-sub">{t("portal_title","Gestión de Reservas")}</div>
+          <div className="cp-brand-sub">Gestión de Reservas</div>
         </div>
       </div>
 
@@ -576,7 +577,7 @@ function Sidebar({ view, unread = 0 }) {
 
       <div style={{ marginTop: "auto", padding: 10, color: "var(--muted)", fontSize: 12 }}>
         Soporte
-        <div style={{ marginTop: 6 }}>{t("need_help_messages","Si necesitas algo, escríbenos desde Mensajes.")}</div>
+        <div style={{ marginTop: 6 }}>Si necesitas algo, escríbenos desde Mensajes.</div>
       </div>
     </aside>
   );
@@ -695,24 +696,24 @@ function UserMenu({ profile, onGo, onLogout }) {
               <div className="cp-user-avatar is-fallback" aria-hidden="true">{initials(name)}</div>
             )}
             <div>
-              <div className="cp-user-name">{name || "Tu cuenta"}</div>
+              <div className="cp-user-name">{name || t('account_label', 'Tu cuenta')}</div>
               {email ? <div className="cp-user-email">{email}</div> : null}
             </div>
           </div>
 
           <button type="button" className="cp-user-item" onClick={() => { setOpen(false); onGo("profile"); }} role="menuitem">
             <span className="cp-user-item-ico" aria-hidden="true"><IconUser /></span>
-            Mi perfil
+            {t('menu_profile', 'Mi perfil')}
           </button>
           <button type="button" className="cp-user-item" onClick={() => { setOpen(false); onGo("security"); }} role="menuitem">
             <span className="cp-user-item-ico" aria-hidden="true"><IconShieldCheck /></span>
-            Seguridad
+            {t('menu_security', 'Seguridad')}
           </button>
 
           <div className="cp-user-sep" />
           <button type="button" className="cp-user-item is-danger" onClick={() => { setOpen(false); onLogout(); }} role="menuitem">
             <span className="cp-user-item-ico" aria-hidden="true"><IconLogout /></span>
-            Cerrar sesión
+            {t('menu_logout', 'Cerrar sesión')}
           </button>
         </div>
       ) : null}
@@ -760,7 +761,7 @@ function ProfileView({ profile, onSave, onLocale }) {
   return (
     <div className="cp-content">
       <div className="cp-card" style={{ background: "#fff" }}>
-        <div className="cp-card-title">{t("personal_info","Información personal")}</div>
+        <div className="cp-card-title">Información personal</div>
 
         <div className="cp-grid2">
           <Field label="Nombre">
@@ -781,7 +782,7 @@ function ProfileView({ profile, onSave, onLocale }) {
         </div>
 
         <div className="cp-divider" />
-        <div className="cp-card-subtitle">{t("address","Dirección")}</div>
+        <div className="cp-card-subtitle">Dirección</div>
 
         <Field label="Dirección">
           <input className="cp-input" value={form.direccion} onChange={(e) => setForm((s) => ({ ...s, direccion: e.target.value }))} />
@@ -813,10 +814,10 @@ function ProfileView({ profile, onSave, onLocale }) {
       </div>
 
       <div className="cp-card" style={{ background: "#fff" }}>
-        <div className="cp-card-title">Idioma del portal</div>
+        <div className="cp-card-title">{t('portal_language', 'Idioma del portal')}</div>
         <div className="cp-row" style={{ gap: 12, alignItems: "center" }}>
           <select className="cp-input" value={locale} onChange={(e) => onLocale(e.target.value)} style={{ maxWidth: 280 }}>
-            <option value="es_ES">{t("lang_spanish","Español")}</option>
+            <option value="es_ES">Español</option>
             <option value="en_US">English</option>
           </select>
           <div className="cp-help">Esto solo afecta al portal.</div>
@@ -834,7 +835,7 @@ function SecurityView({ onChangePassword }) {
   return (
     <div className="cp-content">
       <div className="cp-card" style={{ background: "#fff" }}>
-        <div className="cp-card-title">{t("change_password","Cambiar contraseña")}</div>
+        <div className="cp-card-title">Cambiar contraseña</div>
         <div className="cp-help" style={{ marginTop: -6, marginBottom: 18 }}>
           Tu contraseña es tu llave digital. No la compartas, aunque a los humanos les encante hacerlo.
         </div>
@@ -974,7 +975,7 @@ function TripsList({ mock, onOpen, dashboard }) {
                   <th style={{ width: 140 }}>Fin</th>
                   <th style={{ width: 120 }}>Estado</th>
                   <th style={{ width: 110, textAlign: "right" }}>Total</th>
-                  <th style={{ width: 160 }}>{t("payments","Pagos")}</th>
+                  <th style={{ width: 160 }}>Pagos</th>
                   <th style={{ width: 120 }}>Bonos</th>
                   <th style={{ width: 180 }}></th>
                 </tr>
@@ -996,7 +997,7 @@ function TripsList({ mock, onOpen, dashboard }) {
                     const currencyForTrip = payments?.currency || "EUR";
                     const totalLabel = hasPayments ? euro(totalAmount, currencyForTrip) : "-";
                     const paymentsLabelText = hasPayments
-                      ? (pendingAmount <= 0.01 ? t("paid","Pagado") : "Pendiente")
+                      ? (pendingAmount <= 0.01 ? "Pagado" : "Pendiente")
                       : "Sin datos";
                     const paymentsVariant = getPaymentVariant(
                       Number.isFinite(pendingAmount) ? pendingAmount : Number.NaN,
@@ -1355,7 +1356,7 @@ function MessagesTimeline({ expediente, mock, onLatestTs, onSeen }) {
     );
   }
 
-  if (items.length === 0) return <EmptyState title={t("no_messages","No hay mensajes disponibles")} icon="💬">{t("messages_hint","Si te escribimos, lo verás aquí al momento.")}</EmptyState>;
+  if (items.length === 0) return <EmptyState title="No hay mensajes disponibles" icon="💬">Si te escribimos, lo verás aquí al momento.</EmptyState>;
 
   return (
     <div className="cp-timeline" style={{ marginTop: 14 }}>
@@ -1408,7 +1409,7 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
     return (
       <div className="cp-card">
         <div className="cp-card-title">Mensajes</div>
-        <Notice variant="error" title="No se pueden cargar los mensajes">{t("cannot_load","Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.")}</Notice>
+        <Notice variant="error" title="No se pueden cargar los mensajes">Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.</Notice>
       </div>
     );
 
@@ -1418,7 +1419,7 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
     return (
       <div className="cp-card">
         <div className="cp-card-title">Mensajes</div>
-        <EmptyState title={t("no_new_messages","No hay mensajes nuevos")} icon="✅">{t("messages_hint","Si te escribimos, lo verás aquí al momento.")}</EmptyState>
+        <EmptyState title="No hay mensajes nuevos" icon="✅">Si te escribimos, lo verás aquí al momento.</EmptyState>
       </div>
     );
 
@@ -1557,7 +1558,7 @@ function ServiceItem({ service, indent = false }) {
           <span>{service.title || "Servicio"}</span>
         </div>
           <div className="cp-service__dates">
-            {service.date_range || t("dates_tbd","Fechas por confirmar")}
+            {service.date_range || "Fechas por confirmar"}
           </div>
         </div>
         <div className="cp-service__right">
@@ -1755,7 +1756,7 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const paymentKpiItems = payments
     ? [
         { key: "total", label: "Total", value: totalLabel, icon: <IconBriefcase />, colorClass: "is-salmon" },
-        { key: "paid", label: t("paid","Pagado"), value: paidLabel, icon: <IconShieldCheck />, colorClass: "is-blue" },
+        { key: "paid", label: "Pagado", value: paidLabel, icon: <IconShieldCheck />, colorClass: "is-blue" },
         { key: "pending", label: "Pendiente", value: pendingLabel, icon: <IconClockArrow />, colorClass: "is-green" },
         {
           key: "mulligans",
@@ -1883,7 +1884,7 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
 
         {tab === "payments" ? (
           <div className="cp-card">
-            <div className="cp-card-title">{t("payments","Pagos")}</div>
+            <div className="cp-card-title">Pagos</div>
             <div className="cp-card-sub">Estado de pagos del viaje</div>
 
             {!payments ? (
@@ -2231,9 +2232,9 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
   const daysLeft = Number.isFinite(daysLeftRaw) ? Math.max(0, Math.round(daysLeftRaw)) : null;
   let daysLeftLabel = null;
   if (postTrip) {
-    daysLeftLabel = t("trip_finished","Viaje finalizado");
+    daysLeftLabel = "Viaje finalizado";
   } else if (daysLeft !== null) {
-    daysLeftLabel = daysLeft === 0 ? t("starts_today","Empieza hoy") : tf("starts_in_days","Empieza en {days} días",{days: daysLeft});
+    daysLeftLabel = daysLeft === 0 ? "Empieza hoy" : `Empieza en ${daysLeft} días`;
   }
   const calendarUrl = nextTrip?.calendar_url ? String(nextTrip.calendar_url) : "";
 
@@ -2282,7 +2283,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
     else if (actionStatus === "invoices") setParam("tab", "invoices");
   };
 
-  const actionCtaLabel = actionStatus === "pending" ? t("view_payments","Ver pagos") : (actionStatus === "invoices" ? t("view_invoices","Ver facturas") : t("view_trip","Ver viaje"));
+  const actionCtaLabel = actionStatus === "pending" ? "Ver pagos" : (actionStatus === "invoices" ? "Ver facturas" : "Ver viaje");
   const actionPillLabel = actionStatus === "invoices" && typeof action?.invoice_count === "number"
     ? `${actionBadge} · ${action.invoice_count}`
     : actionBadge;
@@ -2302,11 +2303,11 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
           <div className="cp-hero__bg" aria-hidden="true" />
           <div className="cp-hero__content">
             <div className="cp-hero__top">
-              <div className="cp-hero__eyebrow">{postTrip ? t("last_trip_eyebrow","Tu último viaje") : t("next_trip_eyebrow","Tu próximo viaje")}</div>
+              <div className="cp-hero__eyebrow">{postTrip ? "Tu último viaje" : "Tu próximo viaje"}</div>
               <div className="cp-hero__badges">
                 {daysLeftLabel ? <span className="cp-pill cp-hero-pill">{daysLeftLabel}</span> : null}
                 {(postTrip || nextTrip?.status) ? (
-                  <span className="cp-pill cp-hero-pill">{postTrip ? t("finished","Finalizado") : nextTrip.status}</span>
+                  <span className="cp-pill cp-hero-pill">{postTrip ? "Finalizado" : nextTrip.status}</span>
                 ) : null}
               </div>
             </div>
@@ -2317,16 +2318,16 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
                   <div className="cp-hero__heading">
                     <div className="cp-hero__title">{tripLabel}</div>
                     <div className="cp-hero__meta">
-                      {tripMeta || t("dates_tbd","Fechas por confirmar")}
+                      {tripMeta || "Fechas por confirmar"}
                       {heroMap?.url ? (
                         <a
                           className="cp-hero__meta-link"
                           href={heroMap.url}
                           target="_blank"
                           rel="noreferrer"
-                          title={t("open_google_maps","Abrir en Google Maps")}
+                          title="Abrir en Google Maps"
                         >
-                          {heroMap?.type === 'route' ? t("view_route","Ver ruta") : t("view_map","Ver mapa")}
+                          {heroMap?.type === 'route' ? 'Ver ruta' : 'Ver mapa'}
                         </a>
                       ) : null}
                     </div>
@@ -2359,7 +2360,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
                 <div className="cp-hero__actions">
                   <div className="cp-hero__actions-left">
                     <button className="cp-btn primary" onClick={viewTrip}>
-                      Ver detalles
+                      {t('view_details', 'Ver detalles')}
                     </button>
                     <button className="cp-btn cp-btn--ghost" onClick={viewPayments} disabled={!hasPaymentsData}>
                       Pagos
@@ -2381,7 +2382,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
                       type="button"
                       className={`cp-pill cp-hero-pill cp-pill--clickable ${actionPillClass}`}
                       onClick={viewActionTrip}
-                      title={actionStatus === "pending" ? t("go_payments","Ir a pagos") : (actionStatus === "invoices" ? t("go_invoices","Ir a facturas") : t("go_trip","Ir al viaje"))}
+                      title={actionStatus === "pending" ? "Ir a pagos" : (actionStatus === "invoices" ? "Ir a facturas" : "Ir al viaje")}
                     >
                       {actionPillLabel}
                     </button>
@@ -2391,8 +2392,8 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
               </>
             ) : (
               <div className="cp-hero__empty">
-                <div className="cp-hero__title">{t("no_next_trip_title","Aún no tienes un próximo viaje")}</div>
-                <div className="cp-hero__meta">{t("no_next_trip_text","Cuando confirmes una reserva, la verás aquí con todos sus detalles.")}</div>
+                <div className="cp-hero__title">Aún no tienes un próximo viaje</div>
+                <div className="cp-hero__meta">Cuando confirmes una reserva, la verás aquí con todos sus detalles.</div>
               </div>
             )}
           </div>
@@ -2436,7 +2437,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
 
         <section className="cp-card cp-dash-card cp-dash-span-4 cp-card--quiet">
           <div className="cp-dash-head">
-            <CardTitleWithIcon icon={IconWallet}>{t("payments","Pagos")}</CardTitleWithIcon>
+            <CardTitleWithIcon icon={IconWallet}>Pagos</CardTitleWithIcon>
             {hasPaymentsData ? (
               <span className={`cp-pill cp-dash-pill ${isPaid ? "is-ok" : "is-warn"}`}>
                 {isPaid ? "Todo pagado" : "Pendiente"}
@@ -2783,9 +2784,9 @@ function App() {
         return;
       }
 
-      notify('Idioma actualizado.', 'success');
+      notify(t('language_updated', 'Idioma actualizado.'), 'success');
     } catch (e) {
-      notify(e?.message || 'No se pudo actualizar el idioma.', 'warn');
+      notify(e?.message || t('language_update_failed', 'No se pudo actualizar el idioma.'), 'warn');
     }
   }
 
@@ -2807,17 +2808,17 @@ function App() {
     inboxLatestTs > 0 && messagesLastSeenTs >= inboxLatestTs ? 0 : unreadFromServer;
 
   const title = useMemo(() => {
-    if ((route.view === "viajes" || route.view === "trips")) return "Viajes";
-    if (route.view === "trip") return "Detalle del viaje";
-    if (route.view === "inbox") return "Mensajes";
-    if (route.view === "dashboard") return "Dashboard";
-    if (route.view === "mulligans") return "Mulligans";
-    if (route.view === "profile") return "Mi perfil";
-    if (route.view === "security") return "Seguridad";
-    return "Portal";
+    if ((route.view === "viajes" || route.view === "trips")) return t('nav_trips', 'Viajes');
+    if (route.view === "trip") return t('nav_trip_detail', 'Detalle del viaje');
+    if (route.view === "inbox") return t('nav_messages', 'Mensajes');
+    if (route.view === "dashboard") return t('nav_dashboard', 'Dashboard');
+    if (route.view === "mulligans") return t('nav_mulligans', 'Mulligans');
+    if (route.view === "profile") return t('menu_profile', 'Mi perfil');
+    if (route.view === "security") return t('menu_security', 'Seguridad');
+    return t('nav_portal', 'Portal');
   }, [route.view]);
 
-  const chip = route.mock ? "Modo prueba" : null;
+  const chip = route.mock ? t('mock_mode', 'Modo prueba') : null;
 
   return (
     <div className="cp-app">
@@ -2840,7 +2841,7 @@ function App() {
           <div className="cp-content">
             <Notice
               variant="success"
-              title="Pago registrado"
+              title={t('payment_registered_title', 'Pago registrado')}
               className="casanova-notice casanova-notice--payment"
               onClose={dismissPaymentBanner}
               closeLabel="Cerrar"
