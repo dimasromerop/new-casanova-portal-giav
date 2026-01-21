@@ -113,6 +113,36 @@ add_action('wp_enqueue_scripts', function () {
       'restUrl' => esc_url_raw(rest_url('casanova/v1')),
       'nonce'   => wp_create_nonce('wp_rest'),
     ]);
+
+    // i18n strings for React (WPML reads them from PHP via __())
+    wp_localize_script($handle, 'CASANOVA_I18N', [
+      'close' => __('Cerrar', 'casanova-portal'),
+      'next_trip_eyebrow' => __('Tu próximo viaje', 'casanova-portal'),
+      'last_trip_eyebrow' => __('Tu último viaje', 'casanova-portal'),
+      'trip_finished' => __('Viaje finalizado', 'casanova-portal'),
+      'starts_today' => __('Empieza hoy', 'casanova-portal'),
+      'starts_in_days' => __('Empieza en {days} días', 'casanova-portal'),
+      'finished' => __('Finalizado', 'casanova-portal'),
+      'dates_tbd' => __('Fechas por confirmar', 'casanova-portal'),
+      'open_google_maps' => __('Abrir en Google Maps', 'casanova-portal'),
+      'view_route' => __('Ver ruta', 'casanova-portal'),
+      'view_map' => __('Ver mapa', 'casanova-portal'),
+      'total_trip' => __('Total del viaje', 'casanova-portal'),
+      'pending' => __('Pendiente', 'casanova-portal'),
+      'paid' => __('Pagado', 'casanova-portal'),
+      'view_details' => __('Ver detalles', 'casanova-portal'),
+      'payments' => __('Pagos', 'casanova-portal'),
+      'add_to_calendar' => __('Añadir al calendario', 'casanova-portal'),
+      'leave_review' => __('Dejar opinión', 'casanova-portal'),
+      'go_payments' => __('Ir a pagos', 'casanova-portal'),
+      'go_invoices' => __('Ir a facturas', 'casanova-portal'),
+      'go_trip' => __('Ir al viaje', 'casanova-portal'),
+      'view_payments' => __('Ver pagos', 'casanova-portal'),
+      'view_invoices' => __('Ver facturas', 'casanova-portal'),
+      'view_trip' => __('Ver viaje', 'casanova-portal'),
+      'no_next_trip_title' => __('Aún no tienes un próximo viaje', 'casanova-portal'),
+      'no_next_trip_text' => __('Cuando confirmes una reserva, la verás aquí con todos sus detalles.', 'casanova-portal'),
+    ]);
   }
 
 

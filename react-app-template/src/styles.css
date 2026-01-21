@@ -1170,7 +1170,7 @@ a { color: inherit; text-decoration: none; }
   font-weight: 700;
   cursor: pointer;
 }
-.cp-notice2__close:hover{ background: none;
+.cp-notice2__close:hover{ background: none;}
 
 /* Notice específica: pagos */
 .casanova-notice--payment{ position:relative; }
