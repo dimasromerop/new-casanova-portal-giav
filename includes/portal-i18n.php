@@ -140,6 +140,25 @@ function casanova_portal_js_literals(): array {
     'Vista en construcción.',
     'Vouchers y documentación',
     '← Viajes',
+
+    'Disponibles',
+    'No disponibles',
+    'Sin datos',
+    'Pagado:',
+    'Expediente #{id}',
+    'ID {id}',
+    'Expediente {id}',
+    'Ver ruta en Google Maps',
+    'Ver mapa en Google Maps',
+    'Redirigiendo…',
+    'Pagar depósito ({amount})',
+    'Pagar pendiente ({amount})',
+    'Tu próximo viaje',
+    'Tu último viaje',
+    'Finalizado',
+    'Todo listo',
+    'Todo pagado',
+    'Info',
   ];
 }
 

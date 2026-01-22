@@ -1020,8 +1020,8 @@ function TripsList({ mock, onOpen, dashboard }) {
                     const currencyForTrip = payments?.currency || "EUR";
                     const totalLabel = hasPayments ? euro(totalAmount, currencyForTrip) : "-";
                     const paymentsLabelText = hasPayments
-                      ? (pendingAmount <= 0.01 ? "Pagado" : "Pendiente")
-                      : "Sin datos";
+                      ? (pendingAmount <= 0.01 ? tt("Pagado") : tt("Pendiente"))
+                      : tt("Sin datos");
                     const paymentsVariant = getPaymentVariant(
                       Number.isFinite(pendingAmount) ? pendingAmount : Number.NaN,
                       hasPayments
@@ -1029,7 +1029,7 @@ function TripsList({ mock, onOpen, dashboard }) {
                     const bonusesAvailable = typeof t?.bonuses?.available === "boolean" ? t.bonuses.available : null;
                     const bonusesLabel = bonusesAvailable === null
                       ? ""
-                      : (bonusesAvailable ? "Disponibles" : "No disponibles");
+                      : (bonusesAvailable ? tt("Disponibles") : tt("No disponibles"));
                     const bonusesVariant = getBonusesVariant(bonusesAvailable);
                     const statusLabel = t.status || "";
                     const statusVariant = getStatusVariant(statusLabel);
@@ -1038,7 +1038,7 @@ function TripsList({ mock, onOpen, dashboard }) {
                         <td>{t.code || `#${t.id}`}</td>
                         <td>
                           <div style={{ fontWeight: 600 }}>{t.title}</div>
-                          <div style={{ fontSize: 12, opacity: 0.75 }}>{t.code ? `ID ${t.id}` : `Expediente ${t.id}`}</div>
+                          <div style={{ fontSize: 12, opacity: 0.75 }}>{t.code ? ttf("ID {id}", { id: t.id }) : ttf("Expediente {id}", { id: t.id })}</div>
                         </td>
                         <td>{formatDateES(r.start)}</td>
                         <td>{formatDateES(r.end)}</td>
@@ -1050,7 +1050,7 @@ function TripsList({ mock, onOpen, dashboard }) {
                           <div className="cp-trip-payments-info">
                             <BadgeLabel label={paymentsLabelText} variant={paymentsVariant} />
                             {hasPayments && Number.isFinite(paidAmount) ? (
-                              <div className="cp-trip-paid-amount">Pagado: {euro(paidAmount)}</div>
+                              <div className="cp-trip-paid-amount">{tt("Pagado:")} {euro(paidAmount)}</div>
                             ) : null}
                           </div>
                         </td>
@@ -1089,11 +1089,11 @@ function TripsList({ mock, onOpen, dashboard }) {
 }
 function Tabs({ tab, onTab }) {
   const items = [
-    { k: "summary", label: "Resumen" },
-    { k: "payments", label: "Pagos" },
-    { k: "invoices", label: "Facturas" },
-    { k: "vouchers", label: "Bonos" },
-    { k: "messages", label: "Mensajes" },
+    { k: "summary", label: tt("Resumen") },
+    { k: "payments", label: tt("Pagos") },
+    { k: "invoices", label: tt("Facturas") },
+    { k: "vouchers", label: tt("Bonos") },
+    { k: "messages", label: tt("Mensajes") },
   ];
   return (
     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
@@ -1182,10 +1182,10 @@ function TripHeader({ trip, payments, map, weather, itineraryUrl }) {
       <div className="cp-card-header">
         <div>
           <div className="cp-card-title" style={{ fontSize: 20 }}>
-            {trip?.title || "Viaje"}
+            {trip?.title || tt("Viaje")}
           </div>
           <div className="cp-card-sub">
-            {trip?.code || `Expediente #${trip?.id || "—"}`} · {trip?.status || "—"}
+            {trip?.code || ttf("Expediente #{id}", { id: trip?.id || "—" })} · {trip?.status || "—"}
           </div>
         </div>
         <div className="cp-trip-head__meta-actions">
@@ -1199,7 +1199,7 @@ function TripHeader({ trip, payments, map, weather, itineraryUrl }) {
                 href={String(map.url)}
                 target="_blank"
                 rel="noreferrer"
-                title={map?.type === "route" ? "Ver ruta en Google Maps" : "Ver mapa en Google Maps"}
+                title={map?.type === "route" ? tt("Ver ruta en Google Maps") : tt("Ver mapa en Google Maps")}
               >
                 {map?.type === "route" ? tt("Ver ruta") : tt("Ver mapa")}
               </a>
@@ -1273,7 +1273,7 @@ function PaymentActions({ expediente, payments, mock }) {
       const message =
         typeof error === "string"
           ? error
-          : error?.message || error?.msg || error?.code || "No se pudo iniciar el pago.";
+          : error?.message || error?.msg || error?.code || tt("No se pudo iniciar el pago.");
       setState({ loading: null, error: message });
     }
   };
@@ -1292,8 +1292,8 @@ function PaymentActions({ expediente, payments, mock }) {
             onClick={() => startIntent("deposit")}
           >
             {state.loading === "deposit"
-              ? "Redirigiendo..."
-              : `Pagar depósito (${euro(depositAmount, currency)})`}
+              ? tt("Redirigiendo…")
+              : ttf("Pagar depósito ({amount})", { amount: euro(depositAmount, currency) })}
           </button>
         ) : null}
 
@@ -1305,8 +1305,8 @@ function PaymentActions({ expediente, payments, mock }) {
             onClick={() => startIntent("balance")}
           >
             {state.loading === "balance"
-              ? "Redirigiendo..."
-              : `Pagar pendiente (${euro(balanceAmount, currency)})`}
+              ? tt("Redirigiendo…")
+              : ttf("Pagar pendiente ({amount})", { amount: euro(balanceAmount, currency) })}
           </button>
         ) : null}
 
@@ -1468,7 +1468,7 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
           >
             <div className="cp-inbox-left">
               <div className="cp-inbox-title">
-                {it.trip_title || "Viaje"}{" "}
+                {it.trip_title || tt("Viaje")}{" "}
                 <span className="cp-muted">
                   {it.trip_code ? `· ${it.trip_code}` : ""} {it.trip_status ? `· ${it.trip_status}` : ""}
                 </span>
@@ -1779,8 +1779,8 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
   const paymentKpiItems = payments
     ? [
         { key: "total", label: "Total", value: totalLabel, icon: <IconBriefcase />, colorClass: "is-salmon" },
-        { key: "paid", label: "Pagado", value: paidLabel, icon: <IconShieldCheck />, colorClass: "is-blue" },
-        { key: "pending", label: "Pendiente", value: pendingLabel, icon: <IconClockArrow />, colorClass: "is-green" },
+        { key: "paid", label: tt("Pagado"), value: paidLabel, icon: <IconShieldCheck />, colorClass: "is-blue" },
+        { key: "pending", label: tt("Pendiente"), value: pendingLabel, icon: <IconClockArrow />, colorClass: "is-green" },
         {
           key: "mulligans",
           label: "Mulligans usados",
@@ -1823,7 +1823,7 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
     );
   };
 
-  const title = trip?.title || `Expediente #${expediente}`;
+  const title = trip?.title || ttf("Expediente #{id}", { id: expediente });
   const tab = readParams().tab;
 
   const resolvedTrip = useMemo(() => {
@@ -2247,7 +2247,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
   const postTrip = Boolean(data?.post_trip?.is_post_trip);
   const reviewUrl = data?.post_trip?.review_url ? String(data.post_trip.review_url) : "";
 
-  const tripLabel = nextTrip?.title ? String(nextTrip.title) : (postTrip ? "Tu viaje" : "Viaje");
+  const tripLabel = nextTrip?.title ? String(nextTrip.title) : (postTrip ? tt("Tu viaje") : tt("Viaje"));
   const tripCode = nextTrip?.code ? String(nextTrip.code) : "";
   const tripContext = tripCode ? `${tripLabel} (${tripCode})` : tripLabel;
   const tripMeta = [tripCode, nextTrip?.date_range].filter(Boolean).join(" · ");
@@ -2263,7 +2263,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
 
   const isPaid = pendingAmount !== null ? pendingAmount <= 0.01 : false;
   const actionStatus = action?.status || (hasPaymentsData ? (isPaid ? "ok" : "pending") : "info");
-  const actionBadge = action?.badge || (hasPaymentsData ? (isPaid ? "Todo listo" : "Pendiente") : "Info");
+  const actionBadge = action?.badge || (hasPaymentsData ? (isPaid ? tt("Todo listo") : tt("Pendiente")) : tt("Info"));
   const actionText = action?.description || (!nextTrip
     ? "No hay viajes próximos para mostrar aquí."
     : !hasPaymentsData
@@ -2326,11 +2326,11 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
           <div className="cp-hero__bg" aria-hidden="true" />
           <div className="cp-hero__content">
             <div className="cp-hero__top">
-              <div className="cp-hero__eyebrow">{postTrip ? "Tu último viaje" : "Tu próximo viaje"}</div>
+              <div className="cp-hero__eyebrow">{postTrip ? tt("Tu último viaje") : tt("Tu próximo viaje")}</div>
               <div className="cp-hero__badges">
                 {daysLeftLabel ? <span className="cp-pill cp-hero-pill">{daysLeftLabel}</span> : null}
                 {(postTrip || nextTrip?.status) ? (
-                  <span className="cp-pill cp-hero-pill">{postTrip ? "Finalizado" : nextTrip.status}</span>
+                  <span className="cp-pill cp-hero-pill">{postTrip ? tt("Finalizado") : nextTrip.status}</span>
                 ) : null}
               </div>
             </div>
@@ -2348,9 +2348,9 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
                           href={heroMap.url}
                           target="_blank"
                           rel="noreferrer"
-                          title={tt(tt("Abrir en Google Maps"))}
+                          title={tt("Abrir en Google Maps")}
                         >
-                          {heroMap?.type === 'route' ? tt(tt("Ver ruta")) : tt(tt("Ver mapa"))}
+                          {heroMap?.type === 'route' ? tt("Ver ruta") : tt("Ver mapa")}
                         </a>
                       ) : null}
                     </div>
@@ -2463,7 +2463,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
             <CardTitleWithIcon icon={IconWallet}>{tt("Pagos")}</CardTitleWithIcon>
             {hasPaymentsData ? (
               <span className={`cp-pill cp-dash-pill ${isPaid ? "is-ok" : "is-warn"}`}>
-                {isPaid ? "Todo pagado" : "Pendiente"}
+                {isPaid ? tt("Todo pagado") : tt("Pendiente")}
               </span>
             ) : null}
           </div>
