@@ -23,6 +23,29 @@ function tf(key, fallback = "", vars = {}) {
   return s.replace(/\{(\w+)\}/g, (_, name) => (vars[name] ?? ""));
 }
 
+// Hash-based translator: avoids manually inventing keys.
+// Keys are computed in JS and in PHP (same algorithm) so WPML can translate them.
+function __hashKey(str) {
+  // djb2 32-bit
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) + h) + str.charCodeAt(i);
+    h = h >>> 0;
+  }
+  return "s_" + h.toString(16);
+}
+
+function tt(literal, fallback = null) {
+  const key = __hashKey(String(literal ?? ""));
+  const fb = fallback === null ? String(literal ?? "") : String(fallback ?? "");
+  return t(key, fb);
+}
+
+function ttf(literal, vars = {}, fallback = null) {
+  const s = tt(literal, fallback);
+  return s.replace(/\{(\w+)\}/g, (_, name) => (vars[name] ?? ""));
+}
+
 /* ===== Helpers ===== */
 function api(path, options = {}) {
   const base = window.CasanovaPortal?.restUrl;
@@ -545,8 +568,8 @@ function Sidebar({ view, unread = 0 }) {
           }}
         />
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-          <div className="cp-brand-title">Casanova Portal</div>
-          <div className="cp-brand-sub">Gestión de Reservas</div>
+          <div className="cp-brand-title">{tt("Casanova Portal")}</div>
+          <div className="cp-brand-sub">{tt("Gestión de Reservas")}</div>
         </div>
       </div>
 
@@ -576,8 +599,8 @@ function Sidebar({ view, unread = 0 }) {
       </nav>
 
       <div style={{ marginTop: "auto", padding: 10, color: "var(--muted)", fontSize: 12 }}>
-        Soporte
-        <div style={{ marginTop: 6 }}>Si necesitas algo, escríbenos desde Mensajes.</div>
+        {tt("Soporte")}
+        <div style={{ marginTop: 6 }}>{tt("Si necesitas algo, escríbenos desde Mensajes.")}</div>
       </div>
     </aside>
   );
@@ -590,9 +613,9 @@ function Topbar({ title, chip, onRefresh, isRefreshing, profile, onGo, onLogout,
         <div className="cp-title">{title}</div>
         <div className="cp-actions">
           {chip ? <div className="cp-chip">{chip}</div> : null}
-          {isRefreshing ? <div className="cp-chip">Actualizando…</div> : null}
+          {isRefreshing ? <div className="cp-chip">{tt("Actualizando…")}</div> : null}
           <button className="cp-btn" onClick={onRefresh}>
-            Actualizar
+            {tt("Actualizar")}
           </button>
           <LanguageMenu locale={profile?.locale} onLocale={onLocale} />
           <UserMenu profile={profile} onGo={onGo} onLogout={onLogout} />
@@ -761,7 +784,7 @@ function ProfileView({ profile, onSave, onLocale }) {
   return (
     <div className="cp-content">
       <div className="cp-card" style={{ background: "#fff" }}>
-        <div className="cp-card-title">Información personal</div>
+        <div className="cp-card-title">{tt("Información personal")}</div>
 
         <div className="cp-grid2">
           <Field label="Nombre">
@@ -782,7 +805,7 @@ function ProfileView({ profile, onSave, onLocale }) {
         </div>
 
         <div className="cp-divider" />
-        <div className="cp-card-subtitle">Dirección</div>
+        <div className="cp-card-subtitle">{tt("Dirección")}</div>
 
         <Field label="Dirección">
           <input className="cp-input" value={form.direccion} onChange={(e) => setForm((s) => ({ ...s, direccion: e.target.value }))} />
@@ -808,7 +831,7 @@ function ProfileView({ profile, onSave, onLocale }) {
 
         <div className="cp-actions-row">
           <button className="cp-btn-primary" type="button" onClick={() => onSave(form)}>
-            Guardar
+            {tt("Guardar")}
           </button>
         </div>
       </div>
@@ -817,10 +840,10 @@ function ProfileView({ profile, onSave, onLocale }) {
         <div className="cp-card-title">{t('portal_language', 'Idioma del portal')}</div>
         <div className="cp-row" style={{ gap: 12, alignItems: "center" }}>
           <select className="cp-input" value={locale} onChange={(e) => onLocale(e.target.value)} style={{ maxWidth: 280 }}>
-            <option value="es_ES">Español</option>
-            <option value="en_US">English</option>
+            <option value="es_ES">{tt("Español")}</option>
+            <option value="en_US">{tt("English")}</option>
           </select>
-          <div className="cp-help">Esto solo afecta al portal.</div>
+          <div className="cp-help">{tt("Esto solo afecta al portal.")}</div>
         </div>
       </div>
     </div>
@@ -835,9 +858,9 @@ function SecurityView({ onChangePassword }) {
   return (
     <div className="cp-content">
       <div className="cp-card" style={{ background: "#fff" }}>
-        <div className="cp-card-title">Cambiar contraseña</div>
+        <div className="cp-card-title">{tt("Cambiar contraseña")}</div>
         <div className="cp-help" style={{ marginTop: -6, marginBottom: 18 }}>
-          Tu contraseña es tu llave digital. No la compartas, aunque a los humanos les encante hacerlo.
+          {tt("Tu contraseña es tu llave digital. No la compartas, aunque a los humanos les encante hacerlo.")}
         </div>
 
         <Field label="Contraseña actual">
@@ -852,7 +875,7 @@ function SecurityView({ onChangePassword }) {
 
         <div className="cp-actions-row">
           <button className="cp-btn-primary" type="button" onClick={() => onChangePassword({ current, next, confirm })}>
-            Actualizar
+            {tt("Actualizar")}
           </button>
         </div>
       </div>
@@ -942,9 +965,9 @@ function TripsList({ mock, onOpen, dashboard }) {
     <div className="cp-content" style={{ maxWidth: 1600, width: "100%", margin: "0 auto", paddingTop: 8 }}>
       <div className="cp-card" style={{ background: "#fff" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-          <div className="cp-card-title" style={{ margin: 0 }}>Tus viajes</div>
+          <div className="cp-card-title" style={{ margin: 0 }}>{tt("Tus viajes")}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div className="cp-meta"><span className="cp-strong">Año:</span></div>
+            <div className="cp-meta"><span className="cp-strong">{tt("Año:")}</span></div>
             <select
               value={year}
               onChange={(e) => setYear(e.target.value)}
@@ -958,7 +981,7 @@ function TripsList({ mock, onOpen, dashboard }) {
           </div>
         </div>
         {error ? (
-          <Notice variant="warn" title="Error al cargar los viajes">
+          <Notice variant="warn" title={tt("Error al cargar los viajes")}>
             {error}
           </Notice>
         ) : null}
@@ -969,14 +992,14 @@ function TripsList({ mock, onOpen, dashboard }) {
             <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
-                  <th style={{ width: 120 }}>Expediente</th>
-                  <th>Viaje</th>
-                  <th style={{ width: 140 }}>Inicio</th>
-                  <th style={{ width: 140 }}>Fin</th>
-                  <th style={{ width: 120 }}>Estado</th>
-                  <th style={{ width: 110, textAlign: "right" }}>Total</th>
-                  <th style={{ width: 160 }}>Pagos</th>
-                  <th style={{ width: 120 }}>Bonos</th>
+                  <th style={{ width: 120 }}>{tt("Expediente")}</th>
+                  <th>{tt("Viaje")}</th>
+                  <th style={{ width: 140 }}>{tt("Inicio")}</th>
+                  <th style={{ width: 140 }}>{tt("Fin")}</th>
+                  <th style={{ width: 120 }}>{tt("Estado")}</th>
+                  <th style={{ width: 110, textAlign: "right" }}>{tt("Total")}</th>
+                  <th style={{ width: 160 }}>{tt("Pagos")}</th>
+                  <th style={{ width: 120 }}>{tt("Bonos")}</th>
                   <th style={{ width: 180 }}></th>
                 </tr>
               </thead>
@@ -1036,14 +1059,14 @@ function TripsList({ mock, onOpen, dashboard }) {
                         </td>
                         <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                           <button className="cp-btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => onOpen(t.id)}>
-                            Ver detalle
+                            {tt("Ver detalle")}
                           </button>
                           <button
                             className="cp-btn"
                             style={{ whiteSpace: "nowrap" }}
                             onClick={() => onOpen(t.id, "payments")}
                           >
-                            Pagar
+                            {tt("Pagar")}
                           </button>
                         </td>
                       </tr>
@@ -1052,7 +1075,7 @@ function TripsList({ mock, onOpen, dashboard }) {
                 ) : (
                   <tr>
                     <td colSpan={9} style={{ padding: 18, opacity: 0.8 }}>
-                      No hay viajes disponibles para el año seleccionado.
+                      {tt("No hay viajes disponibles para el año seleccionado.")}
                     </td>
                   </tr>
                 )}
@@ -1131,7 +1154,7 @@ function TripWeather({ weather }) {
 
   return (
     <div className="cp-weather" title={title}>
-      <div className="cp-weather__title">Tiempo</div>
+      <div className="cp-weather__title">{tt("Tiempo")}</div>
       <div className="cp-weather__row">
         {slice.map((d, idx) => {
           const tmin = Number(d?.t_min);
@@ -1167,7 +1190,7 @@ function TripHeader({ trip, payments, map, weather, itineraryUrl }) {
         </div>
         <div className="cp-trip-head__meta-actions">
           <div className="cp-trip-head__meta">
-            <span className="cp-strong">Fechas:</span> {formatDateES(r.start)} – {formatDateES(r.end)}
+            <span className="cp-strong">{tt("Fechas:")}</span> {formatDateES(r.start)} – {formatDateES(r.end)}
           </div>
           <div className="cp-trip-head__actions">
             {map?.url ? (
@@ -1178,7 +1201,7 @@ function TripHeader({ trip, payments, map, weather, itineraryUrl }) {
                 rel="noreferrer"
                 title={map?.type === "route" ? "Ver ruta en Google Maps" : "Ver mapa en Google Maps"}
               >
-                {map?.type === "route" ? "Ver ruta" : "Ver mapa"}
+                {map?.type === "route" ? tt("Ver ruta") : tt("Ver mapa")}
               </a>
             ) : null}
             <button
@@ -1187,7 +1210,7 @@ function TripHeader({ trip, payments, map, weather, itineraryUrl }) {
                 setParam("tab", "payments");
               }}
             >
-              Ver pagos
+              {tt("Ver pagos")}
             </button>
             {itineraryUrl ? (
               <a
@@ -1196,7 +1219,7 @@ function TripHeader({ trip, payments, map, weather, itineraryUrl }) {
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                Programa del viaje (PDF)
+                {tt("Programa del viaje (PDF)")}
               </a>
             ) : null}
             <TripWeather weather={weather} />
@@ -1289,13 +1312,13 @@ function PaymentActions({ expediente, payments, mock }) {
 
         {!hasActions && !isPaidLocal ? (
           <div className="cp-meta" style={{ alignSelf: "center" }}>
-            Aún no hay pagos disponibles para este viaje.
+            {tt("Aún no hay pagos disponibles para este viaje.")}
           </div>
         ) : null}
       </div>
 
       {state.error ? (
-        <Notice variant="error" title="No se puede iniciar el pago">
+        <Notice variant="error" title={tt("No se puede iniciar el pago")}>
           {state.error}
         </Notice>
       ) : null}
@@ -1347,16 +1370,16 @@ function MessagesTimeline({ expediente, mock, onLatestTs, onSeen }) {
   }, [expediente, onSeen]);
 
 
-  if (state.loading) return (<div className="cp-card"><div className="cp-card-title">Cargando mensajes</div><Skeleton lines={6} /></div>);
+  if (state.loading) return (<div className="cp-card"><div className="cp-card-title">{tt("Cargando mensajes")}</div><Skeleton lines={6} /></div>);
   if (state.error) {
     return (
       <div className="cp-notice is-warn">
-        Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.
+        {tt("Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.")}
       </div>
     );
   }
 
-  if (items.length === 0) return <EmptyState title="No hay mensajes disponibles" icon="💬">Si te escribimos, lo verás aquí al momento.</EmptyState>;
+  if (items.length === 0) return <EmptyState title={tt("No hay mensajes disponibles")} icon="💬">{tt("Si te escribimos, lo verás aquí al momento.")}</EmptyState>;
 
   return (
     <div className="cp-timeline" style={{ marginTop: 14 }}>
@@ -1404,12 +1427,12 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (loading) return (<div className="cp-card"><div className="cp-card-title">Mensajes</div><Skeleton lines={6} /></div>);
+  if (loading) return (<div className="cp-card"><div className="cp-card-title">{tt("Mensajes")}</div><Skeleton lines={6} /></div>);
   if (error)
     return (
       <div className="cp-card">
-        <div className="cp-card-title">Mensajes</div>
-        <Notice variant="error" title="No se pueden cargar los mensajes">Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.</Notice>
+        <div className="cp-card-title">{tt("Mensajes")}</div>
+        <Notice variant="error" title={tt("No se pueden cargar los mensajes")}>{tt("Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.")}</Notice>
       </div>
     );
 
@@ -1418,15 +1441,15 @@ function InboxView({ mock, inbox, loading, error, onLatestTs, onSeen }) {
   if (!sorted.length)
     return (
       <div className="cp-card">
-        <div className="cp-card-title">Mensajes</div>
-        <EmptyState title="No hay mensajes nuevos" icon="✅">Si te escribimos, lo verás aquí al momento.</EmptyState>
+        <div className="cp-card-title">{tt("Mensajes")}</div>
+        <EmptyState title={tt("No hay mensajes nuevos")} icon="✅">{tt("Si te escribimos, lo verás aquí al momento.")}</EmptyState>
       </div>
     );
 
   return (
     <div className="cp-card">
-      <div className="cp-card-title">Mensajes</div>
-      {status === "mock" ? <div className="cp-chip">Modo prueba</div> : null}
+      <div className="cp-card-title">{tt("Mensajes")}</div>
+      {status === "mock" ? <div className="cp-chip">{tt("Modo prueba")}</div> : null}
 
       <div className="cp-inbox-list">
         {sorted.map((it) => (
@@ -1574,21 +1597,21 @@ function ServiceItem({ service, indent = false }) {
               disabled={!service.actions?.detail}
               aria-expanded={open}
             >
-              Detalle
+              {tt("Detalle")}
             </button>
             {canVoucher && viewUrl ? (
               <a className="cp-btn cp-btn--ghost" href={viewUrl} target="_blank" rel="noreferrer">
-                Ver bono
+                {tt("Ver bono")}
               </a>
             ) : (
-              <span className="cp-btn cp-btn--ghost cp-btn--disabled">Bono</span>
+              <span className="cp-btn cp-btn--ghost cp-btn--disabled">{tt("Bono")}</span>
             )}
             {canPdf && pdfUrl ? (
               <a className="cp-btn cp-btn--ghost" href={pdfUrl} target="_blank" rel="noreferrer">
-                PDF
+                {tt("PDF")}
               </a>
             ) : (
-              <span className="cp-btn cp-btn--ghost cp-btn--disabled">PDF</span>
+              <span className="cp-btn cp-btn--ghost cp-btn--disabled">{tt("PDF")}</span>
             )}
           </div>
         </div>
@@ -1598,25 +1621,25 @@ function ServiceItem({ service, indent = false }) {
           <div className="cp-service__kv">
             {detail.code || service.id ? (
               <div>
-                <strong>Código:</strong> {detail.code || service.id}
+                <strong>{tt("Código:")}</strong> {detail.code || service.id}
               </div>
             ) : null}
             {detail.type ? (
               <div>
-                <strong>Tipo:</strong> {detail.type}
+                <strong>{tt("Tipo:")}</strong> {detail.type}
               </div>
             ) : null}
             <div>
-              <strong>Fechas:</strong> {service.date_range || "—"}
+              <strong>{tt("Fechas:")}</strong> {service.date_range || "—"}
             </div>
             {detail.locator ? (
               <div>
-                <strong>Localizador:</strong> {detail.locator}
+                <strong>{tt("Localizador:")}</strong> {detail.locator}
               </div>
             ) : null}
             {price != null ? (
               <div>
-                <strong>PVP:</strong> {euro(price)}
+                <strong>{tt("PVP:")}</strong> {euro(price)}
               </div>
             ) : null}
             {extraDetailRows.map((row) => (
@@ -1629,7 +1652,7 @@ function ServiceItem({ service, indent = false }) {
             <>
               <div className="cp-service__divider" />
               <div>
-                <strong>Segmentos:</strong>
+                <strong>{tt("Segmentos:")}</strong>
                 <ul className="cp-service__bonus">
                   {segments.map((segment, index) => (
                     <li key={`${segment}-${index}`}>{segment}</li>
@@ -1642,7 +1665,7 @@ function ServiceItem({ service, indent = false }) {
             <>
               <div className="cp-service__divider" />
               <div>
-                <strong>Texto adicional (bono):</strong>
+                <strong>{tt("Texto adicional (bono):")}</strong>
                 <p className="cp-service__bonus">{bonusText}</p>
               </div>
             </>
@@ -1819,10 +1842,10 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
       <div className="cp-content" style={{ maxWidth: 1200, width: "100%", margin: "0 auto" }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <button className="cp-btn" onClick={() => setParam("view", "trips")}>
-          ← Viajes
+          {tt("← Viajes")}
         </button>
         <div className="cp-meta" style={{ opacity: 0.85 }}>
-          Viajes &gt; <span className="cp-strong">{title}</span>
+          {tt("Viajes &gt;")} <span className="cp-strong">{title}</span>
         </div>
       </div>
 
@@ -1843,29 +1866,29 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
 
       <div style={{ marginTop: 14 }}>
         {loading ? (
-          <div className="cp-card" style={{ background: "#fff" }}><div className="cp-card-title">Cargando expediente</div><Skeleton lines={8} /></div>
+          <div className="cp-card" style={{ background: "#fff" }}><div className="cp-card-title">{tt("Cargando expediente")}</div><Skeleton lines={8} /></div>
         ) : err ? (
-          <div className="cp-notice is-warn">No se puede cargar el expediente ahora mismo.</div>
+          <div className="cp-notice is-warn">{tt("No se puede cargar el expediente ahora mismo.")}</div>
         ) : null}
 
         {tab === "summary" ? (
           <div className="cp-card">
-            <div className="cp-card-title">Resumen</div>
-            <div className="cp-card-sub">Servicios y planificación del viaje</div>
+            <div className="cp-card-title">{tt("Resumen")}</div>
+            <div className="cp-card-sub">{tt("Servicios y planificación del viaje")}</div>
 
             {!hasServices ? (
               <div style={{ marginTop: 10 }} className="cp-meta">
-                No hay servicios disponibles ahora mismo.
+                {tt("No hay servicios disponibles ahora mismo.")}
               </div>
             ) : (
               <div className="cp-summary-services">
                 {pkg ? (
                   <div className="cp-service-section">
-                    <div className="cp-service-section__heading">Paquete</div>
+                    <div className="cp-service-section__heading">{tt("Paquete")}</div>
                     <ServiceItem service={pkg} />
                     {packageServices.length > 0 ? (
                       <div className="cp-service-section">
-                        <div className="cp-service-section__heading">Servicios incluidos</div>
+                        <div className="cp-service-section__heading">{tt("Servicios incluidos")}</div>
                         <ServiceList services={packageServices} indent />
                       </div>
                     ) : null}
@@ -1884,11 +1907,11 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
 
         {tab === "payments" ? (
           <div className="cp-card">
-            <div className="cp-card-title">Pagos</div>
-            <div className="cp-card-sub">Estado de pagos del viaje</div>
+            <div className="cp-card-title">{tt("Pagos")}</div>
+            <div className="cp-card-sub">{tt("Estado de pagos del viaje")}</div>
 
             {!payments ? (
-              <div style={{ marginTop: 10 }} className="cp-meta">Aún no hay pagos asociados a este viaje.</div>
+              <div style={{ marginTop: 10 }} className="cp-meta">{tt("Aún no hay pagos asociados a este viaje.")}</div>
             ) : (
               <>
                 <div className="cp-kpi-card-grid">
@@ -1906,22 +1929,22 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
                 <PaymentActions expediente={expediente} payments={payments} mock={mock} />
                 {isPaid ? (
                   <div style={{ marginTop: 12 }}>
-                    <div className="cp-pill cp-pill--success">Pagado</div>
+                    <div className="cp-pill cp-pill--success">{tt("Pagado")}</div>
                   </div>
                 ) : null}
 
                 {chargeHistory.length > 0 ? (
                   <div className="cp-payments-history">
-                    <div className="cp-payments-history__title">Histórico de cobros</div>
+                    <div className="cp-payments-history__title">{tt("Histórico de cobros")}</div>
                     <div className="cp-table-wrap">
                       <table className="cp-payments-history__table">
                         <thead>
                           <tr>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Concepto</th>
-                            <th>Pagador</th>
-                            <th className="is-right">Importe</th>
+                            <th>{tt("Fecha")}</th>
+                            <th>{tt("Tipo")}</th>
+                            <th>{tt("Concepto")}</th>
+                            <th>{tt("Pagador")}</th>
+                            <th className="is-right">{tt("Importe")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1951,7 +1974,7 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
                   </div>
                 ) : (
                   <div style={{ marginTop: 14 }} className="cp-meta">
-                    Aún no hay cobros registrados en este viaje.
+                    {tt("Aún no hay cobros registrados en este viaje.")}
                   </div>
                 )}
               </>
@@ -1961,20 +1984,20 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
 
         {tab === "invoices" ? (
           <div className="cp-card">
-            <div className="cp-card-title">Facturas</div>
-            <div className="cp-card-sub">Descargas asociadas a este viaje</div>
+            <div className="cp-card-title">{tt("Facturas")}</div>
+            <div className="cp-card-sub">{tt("Descargas asociadas a este viaje")}</div>
             {invoices.length === 0 ? (
-              <div style={{ marginTop: 10 }} className="cp-meta">No hay facturas disponibles.</div>
+              <div style={{ marginTop: 10 }} className="cp-meta">{tt("No hay facturas disponibles.")}</div>
             ) : (
               <div className="casanova-tablewrap" style={{ marginTop: 14 }}>
                 <table className="casanova-table">
                   <thead>
                     <tr>
-                      <th>Factura</th>
-                      <th>Fecha</th>
-                      <th className="num">Importe</th>
-                      <th>Estado</th>
-                      <th>Acciones</th>
+                      <th>{tt("Factura")}</th>
+                      <th>{tt("Fecha")}</th>
+                      <th className="num">{tt("Importe")}</th>
+                      <th>{tt("Estado")}</th>
+                      <th>{tt("Acciones")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1993,10 +2016,10 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
                           <td>
                             {inv.download_url ? (
                               <a className="casanova-btn casanova-btn--sm casanova-btn--ghost" href={inv.download_url}>
-                                Descargar PDF
+                                {tt("Descargar PDF")}
                               </a>
                             ) : (
-                              <span className="casanova-btn casanova-btn--sm casanova-btn--disabled">Descargar PDF</span>
+                              <span className="casanova-btn casanova-btn--sm casanova-btn--disabled">{tt("Descargar PDF")}</span>
                             )}
                           </td>
                         </tr>
@@ -2011,11 +2034,11 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
 
         {tab === "vouchers" ? (
           <div className="cp-card">
-            <div className="cp-card-title">Bonos</div>
-            <div className="cp-card-sub">Vouchers y documentación</div>
+            <div className="cp-card-title">{tt("Bonos")}</div>
+            <div className="cp-card-sub">{tt("Vouchers y documentación")}</div>
             {bonuses.available && voucherItems.length > 0 ? (
-              <Notice variant="info" title="Bonos disponibles">
-                En cada reserva podrás ver el bono y descargar el PDF.
+              <Notice variant="info" title={tt("Bonos disponibles")}>
+                {tt("En cada reserva podrás ver el bono y descargar el PDF.")}
               </Notice>
             ) : null}
 
@@ -2034,7 +2057,7 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
                       <div className="cp-bonus-meta">{item.date_range || "Sin fechas"}</div>
                     </div>
                     <div className="cp-bonus-actions">
-                      {renderBonusButton("Ver bono", item.view_url, "view")}
+                      {renderBonusButton(tt("Ver bono"), item.view_url, "view")}
                       {renderBonusButton("PDF", item.pdf_url, "pdf")}
                     </div>
                   </div>
@@ -2046,8 +2069,8 @@ function TripDetailView({ mock, expediente, dashboard, onLatestTs, onSeen }) {
 
         {tab === "messages" ? (
           <div className="cp-card">
-            <div className="cp-card-title">Mensajes</div>
-            <div className="cp-card-sub">Conversación sobre este viaje</div>
+            <div className="cp-card-title">{tt("Mensajes")}</div>
+            <div className="cp-card-sub">{tt("Conversación sobre este viaje")}</div>
             <MessagesTimeline expediente={expediente} mock={mock} onLatestTs={onLatestTs} onSeen={onSeen} />
           </div>
         ) : null}
@@ -2105,8 +2128,8 @@ function MulligansView({ data }) {
       <div className="cp-card">
         <div className="cp-card-header">
           <div>
-            <div className="cp-card-title">Tu programa Mulligans</div>
-            <div className="cp-card-sub">Puntos y nivel se actualizan automáticamente con tus reservas.</div>
+            <div className="cp-card-title">{tt("Tu programa Mulligans")}</div>
+            <div className="cp-card-sub">{tt("Puntos y nivel se actualizan automáticamente con tus reservas.")}</div>
           </div>
           <div className={`cp-pill ${tierSlug ? `is-${tierSlug}` : ""}`}>{tierLabel(tier)}</div>
         </div>
@@ -2122,19 +2145,19 @@ function MulligansView({ data }) {
           ))}
         </div>
         <div style={{ marginTop: 14 }}>
-          <Notice variant="info" title="Cómo funciona">
+          <Notice variant="info" title={tt("Cómo funciona")}>
             Los beneficios se activan con una reserva real. Si un año no viajas, mantienes tu nivel, pero no se “dispara” el beneficio.
           </Notice>
         </div>
       </div>
 
       <div className="cp-card" style={{ marginTop: 14 }}>
-        <div className="cp-card-title">Histórico</div>
-        <div className="cp-card-sub">Movimientos recientes (ganados, bonus y canjes).</div>
+        <div className="cp-card-title">{tt("Histórico")}</div>
+        <div className="cp-card-sub">{tt("Movimientos recientes (ganados, bonus y canjes).")}</div>
 
         {ledger.length === 0 ? (
-          <EmptyState title="Aún no hay movimientos" icon="🧾">
-            Cuando se registren pagos o se aplique un bonus, aparecerán aquí.
+          <EmptyState title={tt("Aún no hay movimientos")} icon="🧾">
+            {tt("Cuando se registren pagos o se aplique un bonus, aparecerán aquí.")}
           </EmptyState>
         ) : (
           <div className="cp-ledger">
@@ -2283,7 +2306,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
     else if (actionStatus === "invoices") setParam("tab", "invoices");
   };
 
-  const actionCtaLabel = actionStatus === "pending" ? "Ver pagos" : (actionStatus === "invoices" ? "Ver facturas" : "Ver viaje");
+  const actionCtaLabel = actionStatus === "pending" ? tt("Ver pagos") : (actionStatus === "invoices" ? "Ver facturas" : "Ver viaje");
   const actionPillLabel = actionStatus === "invoices" && typeof action?.invoice_count === "number"
     ? `${actionBadge} · ${action.invoice_count}`
     : actionBadge;
@@ -2325,9 +2348,9 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
                           href={heroMap.url}
                           target="_blank"
                           rel="noreferrer"
-                          title="Abrir en Google Maps"
+                          title={tt(tt("Abrir en Google Maps"))}
                         >
-                          {heroMap?.type === 'route' ? 'Ver ruta' : 'Ver mapa'}
+                          {heroMap?.type === 'route' ? tt(tt("Ver ruta")) : tt(tt("Ver mapa"))}
                         </a>
                       ) : null}
                     </div>
@@ -2344,15 +2367,15 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
 
                 <div className="cp-hero__kpis">
                   <div className="cp-hero-kpi">
-                    <div className="cp-hero-kpi__label">Total del viaje</div>
+                    <div className="cp-hero-kpi__label">{tt("Total del viaje")}</div>
                     <div className="cp-hero-kpi__value">{hasPaymentsData ? totalLabel : "—"}</div>
                   </div>
                   <div className="cp-hero-kpi">
-                    <div className="cp-hero-kpi__label">Pendiente</div>
+                    <div className="cp-hero-kpi__label">{tt("Pendiente")}</div>
                     <div className="cp-hero-kpi__value is-warn">{hasPaymentsData ? pendingLabel : "—"}</div>
                   </div>
                   <div className="cp-hero-kpi">
-                    <div className="cp-hero-kpi__label">Pagado</div>
+                    <div className="cp-hero-kpi__label">{tt("Pagado")}</div>
                     <div className="cp-hero-kpi__value">{hasPaymentsData ? paidLabel : "—"}</div>
                   </div>
                 </div>
@@ -2363,17 +2386,17 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
                       {t('view_details', 'Ver detalles')}
                     </button>
                     <button className="cp-btn cp-btn--ghost" onClick={viewPayments} disabled={!hasPaymentsData}>
-                      Pagos
+                      {tt("Pagos")}
                     </button>
                     {calendarUrl ? (
                       <a className="cp-btn cp-btn--ghost" href={calendarUrl}>
-                        Añadir al calendario
+                        {tt("Añadir al calendario")}
                       </a>
                     ) : null}
 
                     {postTrip && reviewUrl ? (
                       <a className="cp-btn cp-btn--ghost" href={reviewUrl} target="_blank" rel="noreferrer">
-                        Dejar opinión
+                        {tt("Dejar opinión")}
                       </a>
                     ) : null}
                   </div>
@@ -2392,8 +2415,8 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
               </>
             ) : (
               <div className="cp-hero__empty">
-                <div className="cp-hero__title">Aún no tienes un próximo viaje</div>
-                <div className="cp-hero__meta">Cuando confirmes una reserva, la verás aquí con todos sus detalles.</div>
+                <div className="cp-hero__title">{tt("Aún no tienes un próximo viaje")}</div>
+                <div className="cp-hero__meta">{tt("Cuando confirmes una reserva, la verás aquí con todos sus detalles.")}</div>
               </div>
             )}
           </div>
@@ -2402,12 +2425,12 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
         {/* Cards secundarias */}
         <section className="cp-card cp-dash-card cp-dash-span-4 cp-card--quiet">
           <div className="cp-dash-head">
-            <CardTitleWithIcon icon={IconClipboardList}>Siguiente paso</CardTitleWithIcon>
+            <CardTitleWithIcon icon={IconClipboardList}>{tt("Siguiente paso")}</CardTitleWithIcon>
             <button
               type="button"
               className={`cp-pill cp-dash-pill cp-pill--clickable ${actionPillClass}`}
               onClick={actionTripLabel ? viewActionTrip : undefined}
-              title={actionTripLabel ? "Ver detalle" : ""}
+              title={actionTripLabel ? tt("Ver detalle") : ""}
               disabled={!actionTripLabel}
             >
               {actionPillLabel}
@@ -2415,7 +2438,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
           </div>
           {actionTripLabel ? (
             <div className="cp-dash-context">
-              Para: <strong>{actionTripLabel}</strong>
+              {tt("Para:")} <strong>{actionTripLabel}</strong>
             </div>
           ) : null}
           <div className="cp-dash-note">{actionText}</div>
@@ -2437,7 +2460,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
 
         <section className="cp-card cp-dash-card cp-dash-span-4 cp-card--quiet">
           <div className="cp-dash-head">
-            <CardTitleWithIcon icon={IconWallet}>Pagos</CardTitleWithIcon>
+            <CardTitleWithIcon icon={IconWallet}>{tt("Pagos")}</CardTitleWithIcon>
             {hasPaymentsData ? (
               <span className={`cp-pill cp-dash-pill ${isPaid ? "is-ok" : "is-warn"}`}>
                 {isPaid ? "Todo pagado" : "Pendiente"}
@@ -2448,11 +2471,11 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
             <>
               <div className="cp-dash-stats">
                 <div>
-                  <div className="cp-dash-stat-label">Pagado</div>
+                  <div className="cp-dash-stat-label">{tt("Pagado")}</div>
                   <div className="cp-dash-stat-value">{paidLabel}</div>
                 </div>
                 <div>
-                  <div className="cp-dash-stat-label">Total</div>
+                  <div className="cp-dash-stat-label">{tt("Total")}</div>
                   <div className="cp-dash-stat-value">{totalLabel}</div>
                 </div>
               </div>
@@ -2461,19 +2484,19 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
               </div>
               <div className="cp-dash-meta">Has pagado {paidLabel} de {totalLabel}</div>
               <button className="cp-btn cp-btn--ghost" onClick={viewPayments}>
-                Ver detalle
+                {tt("Ver detalle")}
               </button>
             </>
           ) : (
             <div className="cp-muted" style={{ marginTop: 12 }}>
-              No hay datos de pagos disponibles por el momento.
+              {tt("No hay datos de pagos disponibles por el momento.")}
             </div>
           )}
         </section>
 
         <section className="cp-card cp-dash-card cp-dash-span-4 cp-card--quiet">
           <div className="cp-dash-head">
-            <CardTitleWithIcon icon={IconMapPin}>Tu viaje</CardTitleWithIcon>
+            <CardTitleWithIcon icon={IconMapPin}>{tt("Tu viaje")}</CardTitleWithIcon>
             {tripCode ? <span className="cp-pill cp-dash-pill is-info">{tripCode}</span> : null}
           </div>
           <div className="cp-dash-note">
@@ -2490,7 +2513,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
           </div>
           {nextTrip ? (
             <button className="cp-btn cp-btn--ghost" onClick={viewTrip}>
-              Ir al detalle
+              {tt("Ir al detalle")}
             </button>
           ) : null}
         </section>
@@ -2502,7 +2525,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
               <span className="cp-card-title-icon" aria-hidden="true">
                 <IconStarBadge />
               </span>
-              <span>Tus Mulligans</span>
+              <span>{tt("Tus Mulligans")}</span>
             </div>
             <div className="casanova-mulligans-card__tier">
               <span className="casanova-mulligans-badge">{levelLabel}</span>
@@ -2523,7 +2546,7 @@ function DashboardView({ data, heroImageUrl, heroMap }) {
           {lastSyncLabel ? <div className="casanova-mulligans-updated">Última actualización: {lastSyncLabel}</div> : null}
 
           <button className="cp-btn cp-btn--ghost" style={{ marginTop: 12 }} onClick={() => setParam("view", "mulligans")}>
-            Ver movimientos
+            {tt("Ver movimientos")}
           </button>
         </section>
 
@@ -2574,6 +2597,28 @@ function App() {
     const onPop = () => setRoute(readParams());
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Persist language preference (WPML):
+  // - Backend stores the choice in user_meta via /profile/locale.
+  // - On load, if the current WPML language differs, redirect once to the preferred language URL.
+  useEffect(() => {
+    try {
+      const current = String(window.CasanovaPortal?.currentLang || "").toLowerCase();
+      const preferred = String(window.CasanovaPortal?.preferredLang || "").toLowerCase();
+      const redirectUrl = String(window.CasanovaPortal?.preferredRedirectUrl || "");
+      if (!current || !preferred || current === preferred) return;
+      if (!redirectUrl) return;
+
+      const u = new URL(redirectUrl, window.location.origin);
+      // keep current SPA params
+      if (window.location.search) u.search = window.location.search;
+      if (u.toString() !== window.location.href) {
+        window.location.replace(u.toString());
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   async function loadProfile() {
@@ -2754,18 +2799,18 @@ function App() {
     try {
       const res = await api('/profile', { method: 'POST', body: data });
       setProfile(res);
-      notify('Perfil actualizado.', 'success');
+      notify(tt('Perfil actualizado.'), 'success');
     } catch (e) {
-      notify(e?.message || 'No se pudo guardar el perfil.', 'warn');
+      notify(e?.message || tt('No se pudo guardar el perfil.'), 'warn');
     }
   }
 
   async function changePassword(data) {
     try {
       await api('/profile/password', { method: 'POST', body: data });
-      notify('Contraseña actualizada.', 'success');
+      notify(tt('Contraseña actualizada.'), 'success');
     } catch (e) {
-      notify(e?.message || 'No se pudo actualizar la contraseña.', 'warn');
+      notify(e?.message || tt('No se pudo actualizar la contraseña.'), 'warn');
     }
   }
 
@@ -2846,7 +2891,7 @@ function App() {
               onClose={dismissPaymentBanner}
               closeLabel="Cerrar"
             >
-              Gracias, procesamos el cobro y actualizamos tus datos.
+              {tt("Gracias, procesamos el cobro y actualizamos tus datos.")}
             </Notice>
           </div>
         ) : null}
@@ -2867,7 +2912,7 @@ function App() {
         ) : dashErr ? (
           <div className="cp-content">
             <div className="cp-notice is-warn">
-              Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.
+              {tt("Ahora mismo no podemos cargar tus datos. Si es urgente, escríbenos y lo revisamos.")}
             </div>
           </div>
         ) : (route.view === "viajes" || route.view === "trips") ? (
@@ -2894,7 +2939,7 @@ function App() {
           ) : (
             <div className="cp-content">
               {profileErr ? (
-                <Notice variant="warn" title="No podemos cargar tu perfil">
+                <Notice variant="warn" title={tt("No podemos cargar tu perfil")}>
                   {profileErr?.message || 'Inténtalo de nuevo más tarde.'}
                 </Notice>
               ) : (
@@ -2906,7 +2951,7 @@ function App() {
           <SecurityView onChangePassword={changePassword} />
         ) : (
           <div className="cp-content">
-            <div className="cp-notice">Vista en construcción.</div>
+            <div className="cp-notice">{tt("Vista en construcción.")}</div>
           </div>
         )}
       </main>

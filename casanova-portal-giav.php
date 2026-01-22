@@ -24,6 +24,31 @@ if (!function_exists('casanova_portal_clear_rest_output')) {
   }
 }
 
+if (!function_exists('casanova_portal_get_preferred_lang_url')) {
+  /**
+   * Returns the current portal page URL in the user's preferred WPML language (if any).
+   * Used so the SPA can hard-redirect once, keeping the language choice persistent.
+   */
+  function casanova_portal_get_preferred_lang_url(): string {
+    if (!is_user_logged_in()) return '';
+    $lang = (string) get_user_meta(get_current_user_id(), 'casanova_portal_lang', true);
+    $lang = strtolower(trim($lang));
+    if ($lang === '') return '';
+
+    // Only meaningful if WPML is active.
+    if (!has_filter('wpml_permalink') && !defined('ICL_SITEPRESS_VERSION')) return '';
+
+    $post_id = (int) get_queried_object_id();
+    if ($post_id <= 0) return '';
+
+    $url = get_permalink($post_id);
+    if (!$url) return '';
+
+    $translated = apply_filters('wpml_permalink', $url, $lang);
+    return is_string($translated) ? $translated : '';
+  }
+}
+
 
 add_action('plugins_loaded', function () {
   load_plugin_textdomain('casanova-portal', false, dirname(plugin_basename(__FILE__)) . '/languages');
@@ -115,6 +140,11 @@ add_action('wp_enqueue_scripts', function () {
     wp_localize_script($handle, 'CasanovaPortal', [
       'restUrl' => esc_url_raw(rest_url('casanova/v1')),
       'nonce'   => wp_create_nonce('wp_rest'),
+      // WPML language context (optional)
+      'currentLang' => (defined('ICL_LANGUAGE_CODE') ? ICL_LANGUAGE_CODE : (has_filter('wpml_current_language') ? (string) apply_filters('wpml_current_language', null) : '')),
+      'preferredLang' => (is_user_logged_in() ? (string) get_user_meta(get_current_user_id(), 'casanova_portal_lang', true) : ''),
+      'preferredRedirectUrl' => (function_exists('casanova_portal_get_preferred_lang_url') ? (string) casanova_portal_get_preferred_lang_url() : ''),
+
     ]);
 
     // Translatable strings for the React app (WPML reads these from PHP)
