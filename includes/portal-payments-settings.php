@@ -79,6 +79,27 @@ add_action('admin_init', function () {
     'default' => '',
   ]);
 
+// --- Stripe (Transferencia bancaria)
+register_setting('casanova_payments', 'casanova_stripe_secret_key', [
+  'type' => 'string',
+  'sanitize_callback' => function($v){
+    $v = trim((string)$v);
+    if (strlen($v) > 200) $v = substr($v, 0, 200);
+    return $v;
+  },
+  'default' => '',
+]);
+
+register_setting('casanova_payments', 'casanova_stripe_webhook_secret', [
+  'type' => 'string',
+  'sanitize_callback' => function($v){
+    $v = trim((string)$v);
+    if (strlen($v) > 200) $v = substr($v, 0, 200);
+    return $v;
+  },
+  'default' => '',
+]);
+
   // --- Portal (legacy templates por vista)
   register_setting('casanova_portal', 'casanova_portal_tpl_dashboard', ['type' => 'integer', 'sanitize_callback' => 'absint']);
   register_setting('casanova_portal', 'casanova_portal_tpl_expedientes', ['type' => 'integer', 'sanitize_callback' => 'absint']);
@@ -189,6 +210,8 @@ function casanova_payments_render_settings_page(): void {
     $ov = get_option('casanova_deposit_overrides', '');
     if (!is_string($ov)) $ov = '';
 
+    $sk = (string) get_option('casanova_stripe_secret_key', '');
+    $wh = (string) get_option('casanova_stripe_webhook_secret', '');
     echo '<form method="post" action="options.php">';
     settings_fields('casanova_payments');
 
@@ -200,6 +223,15 @@ function casanova_payments_render_settings_page(): void {
     echo '<td><input name="casanova_deposit_min_amount" id="casanova_deposit_min_amount" type="number" step="0.01" min="0" value="' . esc_attr($m) . '" /> <p class="description">Por defecto 50€.</p></td></tr>';
 
     echo '<tr><th scope="row"><label for="casanova_deposit_overrides">Overrides por expediente</label></th>';
+ 
+     echo '<tr><th scope="row"><label for="casanova_stripe_secret_key">Stripe Secret Key</label></th>';
+     echo '<td><input name="casanova_stripe_secret_key" id="casanova_stripe_secret_key" type="password" class="regular-text" value="' . esc_attr($sk) . '" autocomplete="off" />';
+     echo '<p class="description">Clave secreta de Stripe (solo necesaria para transferencia bancaria).</p></td></tr>';
+ 
+     echo '<tr><th scope="row"><label for="casanova_stripe_webhook_secret">Stripe Webhook Secret</label></th>';
+     echo '<td><input name="casanova_stripe_webhook_secret" id="casanova_stripe_webhook_secret" type="password" class="regular-text" value="' . esc_attr($wh) . '" autocomplete="off" />';
+     echo '<p class="description">Endpoint webhook: <code>/wp-json/casanova/v1/stripe/webhook</code></p></td></tr>';
+
     echo '<td><textarea name="casanova_deposit_overrides" id="casanova_deposit_overrides" rows="8" cols="60" class="large-text code">' . esc_textarea($ov) . '</textarea>';
     echo '<p class="description">Opcional. Una línea por expediente: <code>2553848=15</code> (porcentaje).</p></td></tr>';
 
