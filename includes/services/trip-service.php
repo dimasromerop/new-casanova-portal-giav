@@ -1879,22 +1879,47 @@ class Casanova_Trip_Service {
     $mulligans_used = (int)($ctx['mulligans_used'] ?? 0);
     $payment_options = is_array($ctx['payment_options'] ?? null) ? $ctx['payment_options'] : null;
 
-    return [
-      'currency' => $ctx['currency'] ?? 'EUR',
-      'total' => (float) ($ctx['total'] ?? 0),
-      'paid' => (float) ($ctx['paid'] ?? 0),
-      'pending' => (float) ($ctx['pending'] ?? 0),
-      'history' => $history,
-      'is_paid' => $is_paid,
-      'mulligans_used' => $mulligans_used,
-      'payment_options' => $payment_options,
-      'can_pay' => (bool) ($ctx['can_pay'] ?? false),
-      'pay_url' => $ctx['pay_url'] ?? null,
-      'actions' => [
-        'deposit' => $actions['deposit'] ?? ['allowed' => false, 'amount' => 0],
-        'balance' => $actions['balance'] ?? ['allowed' => false, 'amount' => 0],
-      ],
-    ];
+    // Available payment methods (backend decides; frontend renders).
+$methods = [];
+$methods[] = [
+  'id' => 'card',
+  'label' => __('Tarjeta', 'casanova-portal'),
+  'provider' => 'redsys',
+  'enabled' => (bool) ($ctx['can_pay'] ?? false),
+];
+
+$stripe_key = (string) get_option('casanova_stripe_secret_key', '');
+$currency = (string) ($ctx['currency'] ?? 'EUR');
+$stripe_enabled = $stripe_key !== '' && strtoupper($currency) === 'EUR' && (bool) ($ctx['can_pay'] ?? false);
+
+if ($stripe_enabled) {
+  $methods[] = [
+    'id' => 'bank_transfer',
+    'label' => __('Transferencia bancaria', 'casanova-portal'),
+    'provider' => 'stripe',
+    'enabled' => true,
+  ];
+}
+
+return [
+  'currency' => $ctx['currency'] ?? 'EUR',
+  'total' => (float) ($ctx['total'] ?? 0),
+  'paid' => (float) ($ctx['paid'] ?? 0),
+  'pending' => (float) ($ctx['pending'] ?? 0),
+  'history' => $history,
+  'is_paid' => $is_paid,
+  'mulligans_used' => $mulligans_used,
+  'payment_options' => $payment_options,
+  'payment_methods' => $methods,
+  'default_method' => $stripe_enabled ? 'bank_transfer' : 'card',
+  'can_pay' => (bool) ($ctx['can_pay'] ?? false),
+  'pay_url' => $ctx['pay_url'] ?? null,
+  'actions' => [
+    'deposit' => $actions['deposit'] ?? ['allowed' => false, 'amount' => 0],
+    'balance' => $actions['balance'] ?? ['allowed' => false, 'amount' => 0],
+  ],
+];
+
   }
 
   private static function build_bonos(int $idCliente, int $expediente_id): array {

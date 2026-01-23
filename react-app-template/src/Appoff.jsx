@@ -1253,28 +1253,6 @@ function PaymentActions({ expediente, payments, mock }) {
   const balanceAmount =
     typeof options?.pending_amount === "number" ? options.pending_amount : balance.amount;
 
-
-// Payment methods announced by backend (trip payload). React only renders.
-const methods = Array.isArray(payments?.payment_methods) ? payments.payment_methods : [];
-const defaultMethod =
-  payments?.default_method ||
-  (methods.find((m) => m?.enabled !== false)?.id || methods[0]?.id || "card");
-const [selectedMethod, setSelectedMethod] = useState(defaultMethod);
-const [bankTransferInfo, setBankTransferInfo] = useState(null);
-
-useEffect(() => {
-  const m =
-    payments?.default_method ||
-    (Array.isArray(payments?.payment_methods)
-      ? (payments.payment_methods.find((x) => x?.enabled !== false)?.id || payments.payment_methods[0]?.id)
-      : "card") ||
-    "card";
-  setSelectedMethod(m);
-  setBankTransferInfo(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [expediente, payments?.default_method]);
-
-
   const startIntent = async (type) => {
     setState({ loading: type, error: null });
     try {
@@ -1300,77 +1278,22 @@ useEffect(() => {
     }
   };
 
-
-const startBankTransfer = async (type) => {
-  setState({ loading: type, error: null });
-  setBankTransferInfo(null);
-  try {
-    const qs = mock ? "?mock=1" : "";
-    const payload = await api(`/payments/stripe/bank-transfer${qs}`, {
-      method: "POST",
-      body: {
-        expediente_id: Number(expediente),
-        type,
-      },
-    });
-
-    // Expect backend to return instructions for bank transfer
-    if (payload?.ok === false) throw payload;
-
-    setBankTransferInfo(payload);
-    setState({ loading: null, error: null });
-  } catch (error) {
-    const message =
-      typeof error === "string"
-        ? error
-        : error?.message || error?.msg || error?.code || tt("No se pudo iniciar la transferencia.");
-    setState({ loading: null, error: message });
-  }
-};
-
-
   const hasActions = depositAllowed || balanceAllowed;
   const currency = payments?.currency || "EUR";
 
   return (
     <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-
-{methods.length > 1 ? (
-  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-    {methods.map((m) => {
-      const disabled = m?.enabled === false;
-      const active = String(selectedMethod) === String(m?.id);
-      return (
-        <button
-          key={String(m?.id)}
-          type="button"
-          className={"cp-btn " + (active ? "primary" : "ghost")}
-          style={{ whiteSpace: "nowrap" }}
-          disabled={disabled || state.loading !== null}
-          onClick={() => {
-            setSelectedMethod(String(m?.id));
-            setBankTransferInfo(null);
-          }}
-          title={disabled ? tt("No disponible para este pago.") : ""}
-        >
-          {m?.label || m?.id}
-        </button>
-      );
-    })}
-  </div>
-) : null}
-
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         {depositAllowed ? (
           <button
             className="cp-btn primary"
             style={{ whiteSpace: "nowrap" }}
             disabled={state.loading !== null}
-            onClick={() => (selectedMethod === "bank_transfer" ? startBankTransfer("deposit") : startIntent("deposit"))}
+            onClick={() => startIntent("deposit")}
           >
             {state.loading === "deposit"
-              ? tt(selectedMethod === "bank_transfer" ? "Generando instrucciones…" : "Redirigiendo…")
-              : ttf(selectedMethod === "bank_transfer" ? "Transferencia: depósito ({amount})" : "Pagar depósito ({amount})", { amount: euro(depositAmount, currency) })}
+              ? tt("Redirigiendo…")
+              : ttf("Pagar depósito ({amount})", { amount: euro(depositAmount, currency) })}
           </button>
         ) : null}
 
@@ -1379,11 +1302,11 @@ const startBankTransfer = async (type) => {
             className="cp-btn primary"
             style={{ whiteSpace: "nowrap" }}
             disabled={state.loading !== null}
-            onClick={() => (selectedMethod === "bank_transfer" ? startBankTransfer("balance") : startIntent("balance"))}
+            onClick={() => startIntent("balance")}
           >
             {state.loading === "balance"
-              ? tt(selectedMethod === "bank_transfer" ? "Generando instrucciones…" : "Redirigiendo…")
-              : ttf(selectedMethod === "bank_transfer" ? "Transferencia: pendiente ({amount})" : "Pagar pendiente ({amount})", { amount: euro(balanceAmount, currency) })}
+              ? tt("Redirigiendo…")
+              : ttf("Pagar pendiente ({amount})", { amount: euro(balanceAmount, currency) })}
           </button>
         ) : null}
 
@@ -1393,38 +1316,6 @@ const startBankTransfer = async (type) => {
           </div>
         ) : null}
       </div>
-
-
-{bankTransferInfo ? (
-  <div className="cp-card" style={{ padding: 14 }}>
-    <div className="cp-card-title">{tt("Instrucciones de transferencia")}</div>
-    <div className="cp-meta" style={{ marginTop: 6 }}>
-      {tt("Usa la referencia indicada para que podamos conciliar tu pago.")}
-    </div>
-
-    <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-      {bankTransferInfo?.instructions?.beneficiary ? (
-        <div><strong>{tt("Beneficiario")}:</strong> {bankTransferInfo.instructions.beneficiary}</div>
-      ) : null}
-      {bankTransferInfo?.instructions?.iban ? (
-        <div><strong>{tt("IBAN")}:</strong> {bankTransferInfo.instructions.iban}</div>
-      ) : null}
-      {bankTransferInfo?.instructions?.bic ? (
-        <div><strong>{tt("BIC/SWIFT")}:</strong> {bankTransferInfo.instructions.bic}</div>
-      ) : null}
-      {bankTransferInfo?.instructions?.reference ? (
-        <div><strong>{tt("Referencia")}:</strong> {bankTransferInfo.instructions.reference}</div>
-      ) : null}
-      {bankTransferInfo?.instructions?.amount ? (
-        <div><strong>{tt("Importe")}:</strong> {bankTransferInfo.instructions.amount}</div>
-      ) : null}
-    </div>
-
-    <div className="cp-meta" style={{ marginTop: 10 }}>
-      {tt("Las transferencias pueden tardar hasta 72h laborables en reflejarse.")}
-    </div>
-  </div>
-) : null}
 
       {state.error ? (
         <Notice variant="error" title={tt("No se puede iniciar el pago")}>
